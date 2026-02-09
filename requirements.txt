@@ -1,0 +1,9 @@
+numpy
+scipy
+matplotlib
+pandas
+datetime
+torch
+snntorch
+nir>=1.0.6
+nirtorch>=2.0.5
