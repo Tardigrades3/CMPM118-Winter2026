@@ -9,8 +9,6 @@ from tensorflow import keras as K
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.utils.class_weight import compute_class_weight
 
-
-
 def normalise(data, train_reps):
     """
     Normalise function rewritten to support different numbers of channels
@@ -173,12 +171,16 @@ def preprocessing(path):
         shuffle=True
     )
 
+    emg_norm = normalise(data = emg_notch, train_reps=train_reps)
+
     win_len = 200    
     win_stride = 50
 
-    X_train, y_train, r_train = windowing(emg_notch, train_reps, gestures, win_len, win_stride)
-    X_test, y_test, r_test = windowing(emg_notch, test_reps, gestures, win_len, win_stride)
+    X_train, y_train, r_train = windowing(emg_norm, train_reps, gestures, win_len, win_stride)
+    X_test, y_test, r_test = windowing(emg_norm, test_reps, gestures, win_len, win_stride)
     overlap = np.intersect1d(r_train, r_test)
+    print(pd.Series(y_train).value_counts())
+    print(pd.Series(y_test).value_counts())
 
     if len(overlap) != 0:
         raise Exception(f'repetitions leaked between train and test for repetition {overlap}')
