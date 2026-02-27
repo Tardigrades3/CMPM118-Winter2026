@@ -8,6 +8,7 @@ import os
 from tensorflow import keras as K
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.utils.class_weight import compute_class_weight
+import torch
 
 def normalise(data, train_reps):
     """
@@ -189,3 +190,14 @@ def preprocessing(path):
     class_weights_dict = dict(zip(np.unique(y_train), class_weights))
 
     return X_train, y_train, X_test, y_test, class_weights_dict
+
+def multi_subject(exercise_number):
+    num_subjects = 27
+    
+    all = []
+    for i in range(num_subjects):
+        base_path = f"../../NinaProData/s{i + 1}/S{i + 1}_A1_E{exercise_number}.mat"
+        res = preprocessing(base_path)
+        all.append(res)
+    return torch.all
+        
