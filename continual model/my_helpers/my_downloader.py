@@ -8,6 +8,7 @@ import scipy
 import zipfile
 import io
 import numpy as np
+from pathlib import Path
 
 
 
@@ -52,3 +53,10 @@ def download_NinaPro(url):
         f_.to_csv(out_path, index=False)
 
 def read_data():
+    data_path = Path("./data")
+    dfs = []
+    for i in tqdm(data_path.iterdir()):
+        df = pd.read_csv(i)
+        dfs.append(pd.read_csv(i))
+        
+    df = pd.concat(dfs, axis=0)
