@@ -17,7 +17,7 @@ def normalise(data, train_reps):
     x = [np.where(data.values[:, data.shape[1] - 2] == rep) for rep in train_reps]
     indices = np.squeeze(np.concatenate(x, axis=-1))
     train_data = data.iloc[indices, :]
-    train_data = data.reset_index(drop=True)
+    train_data = train_data.reset_index(drop=True)
 
     scaler = StandardScaler(with_mean=True,
                             with_std=True,
@@ -149,7 +149,7 @@ def train_model(model, X_train_wind, y_train_wind,
 
     return history, model
 
-def preprocessing(path):
+def load_data(path):
     mat = loadmat(path) 
     emg = mat['emg']
 
@@ -159,7 +159,13 @@ def preprocessing(path):
     data = pd.DataFrame(mat['emg'])
     data['stimulus'] = mat['restimulus']
     data['repetition'] = mat['repetition']
+    return data
 
+def preprocessing(path):
+    data = load_data(path)
+    return preprocessing_internals(data)
+
+def preprocessing_internals(data):
     emg_low = filter_data(data=data, f=20, butterworth_order=4, btype='lowpass')
 
     emg_notch = notch_filter(data=emg_low,f0=60,Q=30,fs=2000)
@@ -191,13 +197,26 @@ def preprocessing(path):
 
     return X_train, y_train, X_test, y_test, class_weights_dict
 
-def multi_subject(exercise_number):
+# path = "../NinaProData"
+
+def multi_preprocess(exercise_number, path):
     num_subjects = 27
-    
-    all = []
+    x_train_list, y_train_list, x_test_list, y_test_list = [], [], [],[]
     for i in range(num_subjects):
-        base_path = f"../../NinaProData/s{i + 1}/S{i + 1}_A1_E{exercise_number}.mat"
-        res = preprocessing(base_path)
-        all.append(res)
-    return torch.all
-        
+        base_path = f"{path}/s{i + 1}/S{i + 1}_A1_E{exercise_number}.mat"
+        data = load_data(base_path)
+        x_train, y_train, x_test, y_test, _cw = preprocessing_internals(data)
+        x_train_list.append(x_train)
+        y_train_list.append(y_train)
+        x_test_list.append(x_test)
+        y_test_list.append(y_test)
+
+    x_train = np.concatenate(x_train_list)
+    y_train = np.concatenate(y_train_list)
+    x_test = np.concatenate(x_test_list)
+    y_test = np.concatenate(y_test_list)
+
+    class_weights = compute_class_weight("balanced", classes=np.unique(y_train), y=y_train)
+    class_weights_dict = dict(zip(np.unique(y_train), class_weights))
+
+    return x_train, y_train, x_test, y_test, class_weights_dict
