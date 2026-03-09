@@ -218,7 +218,7 @@ def multi_preprocess(exercise_number, path):
 
     class_weights = compute_class_weight("balanced", classes=np.unique(y_train), y=y_train)
     class_weights_dict = dict(zip(np.unique(y_train), class_weights))
-    x_test = np.permute(x_test, (0, 2, 1))
-    x_train = np.permute(x_train, (0, 2, 1))
+    x_test = np.transpose(x_test, (0, 2, 1))
+    x_train = np.transpose(x_train, (0, 2, 1))
     
     return x_train, y_train, x_test, y_test, class_weights_dict
