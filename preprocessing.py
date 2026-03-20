@@ -4,11 +4,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from scipy import signal
 from scipy.io import loadmat
-# import os
-# from tensorflow import keras as K
-# from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.utils.class_weight import compute_class_weight
-# import torch
+import torch
 
 def normalise(data, train_reps):
     """
@@ -100,55 +97,6 @@ def notch_filter(data, f0, Q, fs=2000):
 
     return filtered
 
-# def train_model(model, X_train_wind, y_train_wind,
-#                 X_test_wind, y_test_wind,
-#                 save_to, class_weights, epoch=300, ):
-
-#     os.makedirs(save_to, exist_ok=True)
-
-#     opt_adam = K.optimizers.Adam(learning_rate=1e-4)
-
-#     model.compile(
-#         loss='sparse_categorical_crossentropy',
-#         optimizer=opt_adam,
-#         metrics=['accuracy']
-#     )
-
-#     es = EarlyStopping(
-#         monitor='val_loss',
-#         mode='min',
-#         patience=30,
-#         restore_best_weights=True,
-#         verbose=1
-#     )
-
-#     mc = ModelCheckpoint(
-#         os.path.join(save_to, 'best_model.keras'),
-#         monitor='val_accuracy',
-#         mode='max',
-#         save_best_only=True,
-#         verbose=1
-#     )
-
-#     history = model.fit(
-#         X_train_wind, y_train_wind,
-#         epochs=epoch,
-#         shuffle=True,
-#         validation_data=(X_test_wind, y_test_wind),
-#         callbacks=[es, mc],
-#         verbose=1,
-#         class_weight= class_weights
-#     )
-
-#     # Evaluate directly — DO NOT reload
-#     train_loss, train_acc = model.evaluate(X_train_wind, y_train_wind, verbose=0)
-#     test_loss, test_acc = model.evaluate(X_test_wind, y_test_wind, verbose=0)
-
-#     print(f'Train Accuracy: {train_acc:.3f}')
-#     print(f'Test Accuracy: {test_acc:.3f}')
-
-#     return history, model
-
 def load_data(path):
     mat = loadmat(path) 
     emg = mat['emg']
@@ -222,3 +170,13 @@ def multi_preprocess(exercise_number, path):
     x_train = np.transpose(x_train, (0, 2, 1))
     
     return x_train, y_train, x_test, y_test, class_weights_dict
+class NinaProDataset(torch.utils.data.Dataset):
+  def __init__(self, x, y):
+    self.X = torch.tensor(x, dtype=torch.float32)
+    self.y = torch.tensor(y, dtype=torch.long)
+
+  def __len__(self):
+    return len(self.X)
+  
+  def __getitem__(self, idx):
+    return self.X[idx], self.y[idx]

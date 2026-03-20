@@ -1,12 +1,8 @@
 import numpy as np
-from scipy.io import loadmat  # this is the SciPy module that loads mat-files
+from scipy.io import loadmat
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt
 from sklearn.preprocessing import StandardScaler
-from datetime import datetime, date, time
-import torch
-import snntorch as snn
-import pandas as pd
 
 def preprocess_emg(emg_data, fs=2000, filter_order=4):
     """Preprocess EMG for SNN"""
