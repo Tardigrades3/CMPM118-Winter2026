@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from tqdm import tqdm
 from torchmetrics.classification import MulticlassAccuracy
+import matplotlib.pyplot as plt
 
 def train_base(model, train, device, optimizer, loss_func, epochs = 100, accuracy_over_time = False, test = None):
     test_accs = []
@@ -91,3 +92,12 @@ def drop_rest_label(x_train, y_train, x_test, y_test):
     y_train -= 1
     y_test -= 1
     return x_train, y_train, x_test, y_test
+
+def graph_multilabel_accs(accs, xLabel, yLabel, bar_colors = "blue"):
+    plt.figure(figsize=(16, 8))
+    plt.bar(range(len(accs)), accs, color = bar_colors)
+    plt.xticks(range(len(accs)))
+    plt.xlabel(xLabel)
+    plt.ylabel(yLabel)
+    plt.tight_layout()
+    plt.show()
