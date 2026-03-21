@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 class NinaProClassifyCNNSmall(nn.Module):
-  def __init__(self):
+  def __init__(self, final_layer_size):
     super().__init__()
     self.conv1 = nn.Conv1d(10, 128, kernel_size=5, stride=2)
     self.relu1 = nn.ReLU()
@@ -14,7 +14,7 @@ class NinaProClassifyCNNSmall(nn.Module):
     self.dense1 = nn.LazyLinear(256)
     self.relu3 = nn.ReLU()
     self.drop3 = nn.Dropout(0.4)
-    self.finalLayer = nn.Linear(256, 13)
+    self.finalLayer = nn.Linear(256, final_layer_size)
 
   def forward(self, x):
     out = self.relu1(self.conv1(x))
@@ -27,7 +27,7 @@ class NinaProClassifyCNNSmall(nn.Module):
     return out
 
 class NinaProClassifyCNN(nn.Module):
-  def __init__(self):
+  def __init__(self, final_layer_size):
     super().__init__()
     self.conv1 = nn.Conv1d(10, 64, kernel_size=5, stride=2)
     self.relu1 = nn.ReLU()
@@ -47,7 +47,7 @@ class NinaProClassifyCNN(nn.Module):
     self.dense2 = nn.Linear(256, 128)
     self.relu4 = nn.ReLU()
     self.drop4 = nn.Dropout(0.3)
-    self.finalLayer = nn.Linear(128, 13)
+    self.finalLayer = nn.Linear(128, final_layer_size)
 
   def forward(self, x):
     out = self.relu1(self.conv1(x))

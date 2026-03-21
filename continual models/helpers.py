@@ -1,7 +1,7 @@
 
 import torch
 from torch import nn
-import tqdm
+from tqdm import tqdm
 from torchmetrics.classification import MulticlassAccuracy
 
 def train_base(model, train, device, optimizer, loss_func, epochs = 100, accuracy_over_time = False, test = None):
@@ -39,7 +39,7 @@ def expand_classifier(model, new_size, device):
   model.finalLayer = newlayer
   return model
 
-def find_accuracy(model, data, device, loss_func):
+def find_accuracy(model, data, device, loss_func, offset=0):
     model.eval()
     total_loss = 0
     total = 0
@@ -49,6 +49,7 @@ def find_accuracy(model, data, device, loss_func):
         for emg, labels in data:
             emg = emg.to(device)
             labels = labels.to(device)
+            labels = labels + offset
             logits = model(emg)
             loss = loss_func(logits, labels)
 
@@ -56,7 +57,8 @@ def find_accuracy(model, data, device, loss_func):
             preds = logits.argmax(dim=1)
             correct += (preds == labels).sum().item()
             total += emg.size(0)
-    print(f"Average Loss: {total_loss/correct}, Accuracy: {correct/total}")
+    # print(f"Average Loss: {total_loss/correct}, Accuracy: {correct/total}")
+    return correct/total
 
 def multi_class_acc_measure(train, model, device, num_classes):
     per_class_acc = MulticlassAccuracy(
