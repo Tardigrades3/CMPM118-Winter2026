@@ -1,6 +1,5 @@
-import preprocessing
+from . import preprocessing
 import numpy as np
-from preprocessing import *
 from torch.utils.data import DataLoader
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -41,15 +40,22 @@ def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_sub
         
 
 def padding(batch):
-    # ensures all sequences are the same size
     sequences = [item[0] for item in batch]
     labels = [item[1] for item in batch]
+    
+    # Track the actual lengths before padding
+    lengths = torch.tensor([len(seq) for seq in sequences])
 
     sequences = [torch.tensor(seq, dtype=torch.float32) if not isinstance(seq, torch.Tensor) else seq for seq in sequences]
     labels = torch.tensor(labels, dtype=torch.long)
 
-    padded_batch = pad_sequence(sequences, batch_first=True, padding_value=0)
-    attention_mask = (padded_batch[..., 0] != 0).long()
+    padded_batch = pad_sequence(sequences, batch_first=True, padding_value=0.0)
+    
+    # Safely generate a mask based on lengths, not values
+    batch_size, max_len, _ = padded_batch.shape
+    attention_mask = torch.arange(max_len).expand(batch_size, max_len) < lengths.unsqueeze(1)
+    attention_mask = attention_mask.long()
+    
     return padded_batch, labels, attention_mask
 
 # def build_dataset(ex_num, data_path, batch_size, num_subjects):
