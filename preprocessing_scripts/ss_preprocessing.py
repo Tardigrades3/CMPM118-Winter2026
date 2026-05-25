@@ -12,10 +12,7 @@ def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_sub
         data = preprocessing.load_data(base_path)
 
         x_train, y_train, x_test, y_test, _cw = preprocessing.preprocessing_internals(data)
-
-        x_train = np.transpose(x_train, (0, 2, 1))
-        x_test = np.transpose(x_test, (0, 2, 1))
-
+        
         train_loader = DataLoader(
             preprocessing.NinaProDataset(x_train, y_train), 
             batch_size=batch_size, 
