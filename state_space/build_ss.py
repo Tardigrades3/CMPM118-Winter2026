@@ -10,7 +10,7 @@ import random
 # --- Required Imports ---
 import training_functions
 import evaluation_functions # <-- NEW IMPORT
-from state_space.fastHGRN import HGRNModel 
+from fastHGRN import HGRNModel 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
