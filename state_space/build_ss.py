@@ -9,6 +9,7 @@ import random
 
 # --- Required Imports ---
 import training_functions
+import evaluation_functions # <-- NEW IMPORT
 from state_space.fastHGRN import HGRNModel 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -51,12 +52,9 @@ def setup_save_directory(mode, exercise):
 
 def main():
     parser = argparse.ArgumentParser(description="Train the HGRN Model on NinaPro Data")
-    
-    # --- The Master Switch Flag ---
     parser.add_argument('--mode', type=str, required=True,
                         choices=['stateless', 'stateful', 'replay_stateless', 'replay_stateful', 'ewc_stateful'],
                         help="Choose the Continual Learning paradigm to execute.")
-    
     parser.add_argument('--data_path', type=str, required=True)
     parser.add_argument('--exercise', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=32)
@@ -64,8 +62,6 @@ def main():
     parser.add_argument('--lr', type=float, default=1e-4)
     args = parser.parse_args()
 
-    # Determine shuffling rule: Only pure stateless methods shuffle data. 
-    # Stateful methods MUST maintain chronological order.
     is_stateless = args.mode in ['stateless', 'replay_stateless']
     
     print(f"Initializing {args.mode.upper()} training pipeline...")
@@ -80,14 +76,12 @@ def main():
         batch_size=args.batch_size
     )
 
-    # Initialize Model, Optimizer, and Loss
     model = HGRNModel(in_channels=10, d_model=128, num_classes=17, num_layers=4).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
     criterion = nn.CrossEntropyLoss()
 
     save_dir = setup_save_directory(args.mode, args.exercise)
 
-    # --- Continual Learning Global Variables ---
     memory_buffer = SimpleMemoryBuffer(capacity=1000) if 'replay' in args.mode else None
     fisher_dict = None
     optpar_dict = None
@@ -101,10 +95,7 @@ def main():
 
         print(f"\n=== Starting Task: {task_id} ===")
         
-        # --- 1. The Micro Epoch Loop ---
         for epoch in range(args.epochs_per_task):
-            
-            # THE SWITCH STATEMENT: Route the data to the correct training logic
             match args.mode:
                 case 'stateless':
                     epoch_loss, epoch_acc = training_functions.train_stateless(
@@ -131,8 +122,7 @@ def main():
             
             print(f"Epoch {epoch+1}/{args.epochs_per_task} | Loss: {epoch_loss:.4f} | Accuracy: {epoch_acc:.4f}")
 
-        # --- 2. Post-Task Consolidation ---
-        # Before moving to the next subject, we must secure the knowledge we just learned.
+        # Post-Task Consolidation
         match args.mode:
             case 'replay_stateless' | 'replay_stateful':
                 print("Populating Memory Buffer with current subject data...")
@@ -149,20 +139,53 @@ def main():
                     optpar_dict = curr_optpar
                 else:
                     for name in fisher_dict.keys():
-                        # Blend the importance of the old tasks with the new task
                         fisher_dict[name] += curr_fisher[name]
                         optpar_dict[name] = curr_optpar[name]
 
-        # --- 3. Save Checkpoint ---
         weight_filepath = os.path.join(save_dir, f"hgrn_{args.mode}_{task_id}.pt")
         torch.save({
             'task_id': task_id,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
         }, weight_filepath)
-        print(f"Saved checkpoint to {weight_filepath}")
 
     print("\nTraining sequence complete.")
+
+    # ==========================================
+    # FINAL CONTINUAL LEARNING EVALUATION
+    # ==========================================
+    print("\n==========================================")
+    print("FINAL CONTINUAL LEARNING EVALUATION")
+    print("==========================================")
+    
+    # 1. Setup the results dictionary with configuration metadata
+    eval_results = {
+        "metadata": {
+            "mode": args.mode,
+            "exercise": args.exercise,
+            "batch_size": args.batch_size,
+            "epochs_per_task": args.epochs_per_task,
+            "learning_rate": args.lr
+        },
+        "task_metrics": {}
+    }
+    
+    # 2. Test the FINAL model against ALL subjects to measure forgetting
+    for task in task_streams:
+        task_id = task['task_id']
+        test_loader = task['test']
+        
+        eval_loss, eval_acc = evaluation_functions.evaluate(model, test_loader, criterion, device)
+        
+        eval_results["task_metrics"][task_id] = {
+            "loss": eval_loss,
+            "accuracy": eval_acc
+        }
+        print(f"Evaluated on {task_id} | Loss: {eval_loss:.4f} | Accuracy: {eval_acc:.4f}")
+        
+    # 3. Save to disk
+    saved_path = evaluation_functions.save_evaluation_results(eval_results, args.mode, args.exercise)
+    print(f"\nEvaluation metrics saved to: {saved_path}")
 
 if __name__ == "__main__":
     main()
