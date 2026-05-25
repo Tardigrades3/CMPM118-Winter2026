@@ -56,19 +56,24 @@ def train_stateful(model, task_loader, optimizer, criterion, device):
         
         optimizer.zero_grad()
         
+        # 1. Get the actual size of the current batch
+        current_batch_size = sequences.size(0)
+        
+        # 2. Slice the detached states to match the current batch size
         if h_states is not None:
             detached_states = []
             for h in h_states:
                 if h is not None:
                     if isinstance(h, tuple):
-                        detached_states.append(tuple(state.detach() for state in h))
+                        # Slice the batch dimension AND detach
+                        detached_states.append(tuple(state[:current_batch_size].detach() for state in h))
                     else:
-                        detached_states.append(h.detach())
+                        # Slice the batch dimension AND detach
+                        detached_states.append(h[:current_batch_size].detach())
                 else:
                     detached_states.append(None)
             h_states = detached_states
 
-        # Standardized kwargs
         logits, h_states = model(x=sequences, states=h_states, attention_mask=attention_mask)
         
         loss = criterion(logits, labels)

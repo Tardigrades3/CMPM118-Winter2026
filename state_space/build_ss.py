@@ -8,7 +8,7 @@ from datetime import datetime
 
 # --- Required Imports ---
 import training_functions
-from state_space.fastHGRN import HGRNModel # Assuming HGRNModel is in the same file
+from fastHGRN import HGRNModel # Assuming HGRNModel is in the same file
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -80,16 +80,16 @@ def main():
         
         for epoch in range(args.epochs_per_task):
             if is_stateless:
-                epoch_loss = training_functions.train_stateless(
+                epoch_loss, epoch_acc = training_functions.train_stateless(
                     model, train_loader, optimizer, criterion, device
                 )
             else:
-                epoch_loss = training_functions.train_stateful(
+                epoch_loss, epoch_acc = training_functions.train_stateful(
                     model, train_loader, optimizer, criterion, device
                 )
             
-            print(f"Epoch {epoch+1}/{args.epochs_per_task} | Loss: {epoch_loss:.4f}")
-
+            # Now we can print both metrics safely!
+            print(f"Epoch {epoch+1}/{args.epochs_per_task} | Loss: {epoch_loss:.4f} | Accuracy: {epoch_acc:.4f}")
         # Save weights after completing the task (simulating a continual learning checkpoint)
         weight_filename = f"hgrn_{args.mode}_{task_id}.pt"
         weight_filepath = os.path.join(save_dir, weight_filename)
