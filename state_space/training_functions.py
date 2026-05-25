@@ -295,6 +295,43 @@ def train_ewc_stateful(model, task_loader, optimizer, criterion, device, fisher_
     
     return epoch_loss, epoch_acc
 
+# def train_generative_replay_stateful(model, task_loader, optimizer, criterion, device, generator=None, gen_batch_size=16):
+#     """
+#     Stateful training with Generative Replay.
+#     The generator provides synthetic 'past' data to prevent forgetting.
+#     """
+#     model.train()
+#     # ... (Keep existing state-detachment logic from train_replay_stateful) ...
+
+#     for batch_idx, (sequences, labels, attention_mask) in enumerate(task_loader):
+#         # 1. Standard Forward Pass (Current Task)
+#         logits_current, h_states = model(x=sequences.to(device), states=h_states, ...)
+#         loss = criterion(logits_current, labels.to(device))
+        
+#         # 2. Generative Replay: Dream up past data
+#         if generator is not None:
+#             generator.eval()
+#             # Generate synthetic EMG signals from random noise
+#             noise = torch.randn(gen_batch_size, sequences.size(1), 10).to(device)
+#             with torch.no_grad():
+#                 syn_seqs = generator(noise)
+            
+#             # The 'dream' is fed to the model to refresh memory
+#             logits_syn, _ = model(x=syn_seqs, states=None, attention_mask=None)
+            
+#             # Distillation Loss: Model should maintain its 'knowledge' of what these 
+#             # gestures look like, even as it learns the new subject.
+#             # We use the previous model's output as the 'teacher'.
+#             syn_labels = logits_syn.detach().argmax(dim=1)
+#             loss += criterion(logits_syn, syn_labels)
+
+#         # 3. Backprop
+#         loss.backward()
+#         optimizer.step()
+        
+#     return epoch_loss, epoch_acc
+
+# HELPER FUNCTIONS
 def compute_fisher(model, task_loader, device):
     """
     Computes the Fisher Information Matrix to determine weight importance.
@@ -350,3 +387,4 @@ def compute_fisher(model, task_loader, device):
                 fisher_dict[name] += param.grad.data.pow(2) / len(task_loader)
                 
     return fisher_dict, optpar_dict
+

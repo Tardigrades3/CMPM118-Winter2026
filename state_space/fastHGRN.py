@@ -100,3 +100,9 @@ class HGRNModel(nn.Module):
         logits = self.head(pooled_x)
         
         return logits, next_states
+    def get_features(self, x):
+        x = self.input_proj(x)
+        for layer in self.layers:
+            x, _ = layer(x)
+        # Assuming we use the last hidden state for the centroid
+        return x[:, -1, :]

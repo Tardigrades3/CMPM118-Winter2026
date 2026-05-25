@@ -2,6 +2,7 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
 import sys
 import os
 import json
@@ -18,6 +19,72 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 from preprocessing_scripts import ss_preprocessing
 # ------------------------
+
+import torch
+import random
+import numpy as np
+
+class HerdingBuffer:
+    def __init__(self, capacity_per_class=20):
+        self.capacity_per_class = capacity_per_class
+        self.buffer = {} # {class_id: [(seq, label, mask), ...]}
+    
+    def __len__(self):
+        """Returns the total number of exemplars stored across all classes."""
+        return sum(len(exemplars) for exemplars in self.buffer.values())
+
+    def select_exemplars(self, model, loader, device, num_classes=17):
+        model.eval()
+        # We need to store the raw data to retrieve it later for training
+        all_data = {cls: [] for cls in range(num_classes)}
+        all_feats = {cls: [] for cls in range(num_classes)}
+        
+        # 1. Collect all raw data and features
+        with torch.no_grad():
+            for x, y, m in loader:
+                feats = model.get_features(x.to(device)).cpu()
+                for i in range(x.size(0)):
+                    cls = y[i].item()
+                    all_data[cls].append((x[i].cpu(), y[i].cpu(), m[i].cpu()))
+                    all_feats[cls].append(feats[i])
+        
+        # 2. Greedy Herding per class
+        for cls in range(num_classes):
+            if not all_feats[cls]: continue
+            
+            feats = torch.stack(all_feats[cls])
+            centroid = feats.mean(dim=0)
+            
+            selected_indices = []
+            curr_sum = torch.zeros_like(centroid)
+            
+            # Select exemplars
+            for i in range(min(self.capacity_per_class, len(feats))):
+                dists = torch.norm((curr_sum + feats) / (i + 1) - centroid, dim=1)
+                # Ensure we don't pick the same index twice
+                dists[selected_indices] = float('inf')
+                best_idx = torch.argmin(dists).item()
+                selected_indices.append(best_idx)
+                curr_sum += feats[best_idx]
+            
+            # Store the raw data triplets for the training loop
+            self.buffer[cls] = [all_data[cls][idx] for idx in selected_indices]
+
+    def sample(self, batch_size):
+        all_samples = []
+        for cls in self.buffer:
+            all_samples.extend(self.buffer[cls])
+            
+        if not all_samples: return None, None, None
+
+        chosen = random.sample(all_samples, min(batch_size, len(all_samples)))
+        
+        # Unpack the triplets
+        seqs = torch.stack([x[0] for x in chosen])
+        labels = torch.stack([x[1] for x in chosen])
+        masks = torch.stack([x[2] for x in chosen])
+        
+        return seqs, labels, masks
 
 class SimpleMemoryBuffer:
     """Reservoir sampling memory buffer for Experience Replay."""
@@ -54,7 +121,7 @@ def setup_save_directory(mode, exercise):
 def main():
     parser = argparse.ArgumentParser(description="Train the HGRN Model on NinaPro Data")
     parser.add_argument('--mode', type=str, required=True,
-                        choices=['stateless', 'stateful', 'replay_stateless', 'replay_stateful', 'ewc_stateful'],
+                        choices=['stateless', 'stateful', 'replay_stateless', 'replay_stateful', 'ewc_stateful', 'herding_stateful'],
                         help="Choose the Continual Learning paradigm to execute.")
     parser.add_argument('--data_path', type=str, required=True)
     parser.add_argument('--exercise', type=int, default=1)
@@ -87,6 +154,7 @@ def main():
 
     # Continual Learning Global Variables
     memory_buffer = SimpleMemoryBuffer(capacity=10000) if 'replay' in args.mode else None
+    herding_buffer = HerdingBuffer(capacity_per_class=20) if args.mode == 'herding_stateful' else None # <-- ADD THIS
     fisher_dict = None
     optpar_dict = None
     
@@ -122,11 +190,11 @@ def main():
             
             match args.mode:
                 case 'stateless':
-                    epoch_loss, epoch_acc = training_functions.train_stateless(
+                    epoch_loss, epoch_acc = training_functions.train_naive_stateless(
                         model, train_loader, optimizer, criterion, device)
                 
                 case 'stateful':
-                    epoch_loss, epoch_acc = training_functions.train_stateful(
+                    epoch_loss, epoch_acc = training_functions.train_naive_stateful(
                         model, train_loader, optimizer, criterion, device)
                 
                 case 'replay_stateless':
@@ -143,6 +211,11 @@ def main():
                     epoch_loss, epoch_acc = training_functions.train_ewc_stateful(
                         model, train_loader, optimizer, criterion, device, 
                         fisher_dict=fisher_dict, optpar_dict=optpar_dict, ewc_lambda=2000)
+                
+                case 'herding_stateful':
+                    epoch_loss, epoch_acc = training_functions.train_replay_stateful(
+                        model, train_loader, optimizer, criterion, device, 
+                        memory_buffer=herding_buffer, replay_batch_size=16)
             
             # Save the training trajectory
             task_epoch_losses.append(epoch_loss)
@@ -163,6 +236,10 @@ def main():
                 for sequences, labels, masks in train_loader:
                     memory_buffer.add_data(sequences, labels, masks)
                 print(f"Buffer size is now: {len(memory_buffer)}")
+
+            case 'herding_stateful':
+                print("Running Herding to select prototypical exemplars...")
+                herding_buffer.select_exemplars(model, train_loader, device)
 
             case 'ewc_stateful':
                 print("Calculating Fisher Information Matrix for consolidation...")
