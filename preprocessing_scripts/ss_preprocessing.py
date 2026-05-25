@@ -16,8 +16,11 @@ def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_sub
         train_loader = DataLoader(
             preprocessing.NinaProDataset(x_train, y_train), 
             batch_size=batch_size, 
-            shuffle=shuffle, # Shuffle differentiates stateless vs stateful training
-            collate_fn=padding
+            shuffle=shuffle, 
+            collate_fn=padding,
+            num_workers=4,
+            pin_memory=True,
+            persistent_workers=True
         )
             
         test_loader = DataLoader(
@@ -54,20 +57,3 @@ def padding(batch):
     attention_mask = attention_mask.long()
     
     return padded_batch, labels, attention_mask
-
-# def build_dataset(ex_num, data_path, batch_size, num_subjects):
-#     x_train, y_train, x_test, y_test, __ = preprocessing.multi_preprocess(ex_num, data_path, num_subjects)
-
-#     train_data = preprocessing.NinaProDataset(x_train, y_train)
-#     test_data = preprocessing.NinaProDataset(x_test, y_test)
-#     train_loader = DataLoader(
-#         train_data,
-#         batch_size,
-#         collate_fn = padding
-#     )
-#     test_loader = DataLoader(
-#         test_data,
-#         batch_size,
-#         collate_fn = padding
-#     )
-#     return train_loader, test_loader
