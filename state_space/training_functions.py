@@ -148,7 +148,7 @@ def train_replay_stateless(model, task_loader, optimizer, criterion, device, mem
     
     return epoch_loss, epoch_acc
 
-def train_replay_stateful(model, task_loader, optimizer, criterion, device, memory_buffer=None, replay_batch_size=16):
+def train_replay_stateful(model, task_loader, optimizer, criterion, device, memory_buffer=None, replay_batch_size=16, replay_weight = 0.5):
     """
     Continual learning training loop WITH Experience Replay.
     Maintains the hidden state for the current data stream, while running
@@ -193,6 +193,9 @@ def train_replay_stateful(model, task_loader, optimizer, criterion, device, memo
             # Sample historical data
             replay_seqs, replay_labels, replay_masks = memory_buffer.sample(replay_batch_size)
             
+            noise = torch.randn_like(replay_seqs) * 0.01 
+            replay_seqs = replay_seqs + noise
+            
             replay_seqs = replay_seqs.to(device)
             replay_labels = replay_labels.to(device)
             replay_masks = replay_masks.to(device)
@@ -203,7 +206,8 @@ def train_replay_stateful(model, task_loader, optimizer, criterion, device, memo
 
         # 4. Combine Loss and Backpropagate
         # The optimizer will update weights based on BOTH the current task and the old memories
-        loss = loss_current + loss_replay
+        
+        loss = loss_current + (replay_weight * loss_replay)
         loss.backward()
         
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)

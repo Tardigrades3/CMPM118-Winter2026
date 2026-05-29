@@ -123,40 +123,62 @@ def main():
     parser.add_argument('--mode', type=str, required=True,
                         choices=['stateless', 'stateful', 'replay_stateless', 'replay_stateful', 'ewc_stateful', 'herding_stateful'],
                         help="Choose the Continual Learning paradigm to execute.")
+    
+    # --- NEW SCENARIO FLAGS ---
+    parser.add_argument('--scenario', type=str, required=True, choices=['dil', 'cil'],
+                        help="'dil': Train across subjects. 'cil': Train across exercises for one subject.")
+    parser.add_argument('--subject', type=int, default=1, 
+                        help="Subject ID to use (Only required if scenario='cil')")
+    # --------------------------
+    
     parser.add_argument('--data_path', type=str, required=True)
-    parser.add_argument('--exercise', type=int, default=1)
+    parser.add_argument('--exercise', type=int, default=1, help="Only used if scenario='dil'")
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--epochs_per_task', type=int, default=5)
     parser.add_argument('--lr', type=float, default=1e-4)
     args = parser.parse_args()
 
-    # Determine shuffling rule
     is_stateless = args.mode in ['stateless', 'replay_stateless']
     
-    print(f"Initializing {args.mode.upper()} training pipeline...")
+    print(f"Initializing {args.mode.upper()} training pipeline in {args.scenario.upper()} scenario...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
 
-    # Build the task streams
-    task_streams = ss_preprocessing.build_ss_task_streams(
-        exercise_number=args.exercise, 
-        path=args.data_path, 
-        shuffle=is_stateless, 
-        batch_size=args.batch_size
-    )
+    # --- DYNAMIC DATA ROUTING ---
+    if args.scenario == 'dil':
+        print("Building Domain-Incremental stream (Subject-to-Subject)...")
+        task_streams = ss_preprocessing.build_ss_task_streams(
+            exercise_number=args.exercise, 
+            path=args.data_path, 
+            shuffle=is_stateless, 
+            batch_size=args.batch_size
+        )
+        total_classes = 17 # Hardcoded for NinaPro Ex 1 (Adjust if necessary)
+        
+    elif args.scenario == 'cil':
+        print(f"Building Class-Incremental stream for Subject {args.subject} (Exercise-to-Exercise)...")
+        task_streams, total_classes = ss_preprocessing.build_cil_multi_exercise_stream(
+            subject_id=args.subject,
+            path=args.data_path,
+            batch_size=args.batch_size,
+            shuffle=is_stateless
+        )
+        print(f"Detected {total_classes} total distinct gestures across exercises.")
 
-    # Initialize Model, Optimizer, and Loss (NinaPro Ex 1: 10 channels -> 17 classes)
-    model = HGRNModel(in_channels=10, d_model=128, num_classes=17, num_layers=4).to(device)
+    # Initialize Model dynamically based on total_classes
+    model = HGRNModel(in_channels=10, d_model=128, num_classes=total_classes, num_layers=4).to(device)
+    
+    # Reset optimizer state between tasks to prevent momentum poisoning
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
     criterion = nn.CrossEntropyLoss()
 
-    save_dir = setup_save_directory(args.mode, args.exercise)
+    save_dir = setup_save_directory(f"{args.scenario}_{args.mode}", args.exercise)
 
     # Continual Learning Global Variables
     memory_buffer = SimpleMemoryBuffer(capacity=10000) if 'replay' in args.mode else None
-    herding_buffer = HerdingBuffer(capacity_per_class=20) if args.mode == 'herding_stateful' else None # <-- ADD THIS
+    herding_buffer = HerdingBuffer(capacity_per_class=20) if args.mode == 'herding_stateful' else None 
     fisher_dict = None
     optpar_dict = None
+    
     
     # Initialize the Evaluation Results JSON structure
     eval_results = {
@@ -179,6 +201,14 @@ def main():
         task_id = task['task_id']
         train_loader = task['train']
         test_loader = task['test'] 
+        
+        if task_idx > 0 and args.mode == 'herding_stateful':
+            print("Freezing early layers to prevent Feature Drift...")
+            # Lock the input projection and the first HGRN layer
+            for param in model.input_proj.parameters():
+                param.requires_grad = False
+            for param in model.layers[0].parameters():
+                param.requires_grad = False
 
         print(f"\n=== Starting Task: {task_id} ===")
         
@@ -239,7 +269,7 @@ def main():
 
             case 'herding_stateful':
                 print("Running Herding to select prototypical exemplars...")
-                herding_buffer.select_exemplars(model, train_loader, device)
+                herding_buffer.select_exemplars(model, train_loader, device, num_classes=total_classes)
 
             case 'ewc_stateful':
                 print("Calculating Fisher Information Matrix for consolidation...")
