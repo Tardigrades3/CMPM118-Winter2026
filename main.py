@@ -3,7 +3,7 @@ from tensorflow.keras.models import load_model, Sequential
 from tensorflow.keras.layers import Input, Dense, Conv1D, MaxPooling1D, Flatten
 from preprocessing import *
 from sklearn.metrics import classification_report, confusion_matrix
-
+# comment to allow manual push for EC3 instance
 # directory to save model to (as a full path)
 save_to = './model'
 
