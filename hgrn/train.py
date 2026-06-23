@@ -48,9 +48,23 @@ def main():
                         help="Exercise number (only used if scenario='dil').")
     parser.add_argument('--arch', type=str, default='hgrn', choices=list(_ARCH_REGISTRY),
                         help="Model architecture (default: hgrn).")
+    # Training
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--epochs_per_task', type=int, default=5)
     parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--weight_decay', type=float, default=0.01)
+    # Model architecture
+    parser.add_argument('--d_model', type=int, default=128)
+    parser.add_argument('--num_layers', type=int, default=4)
+    # EWC
+    parser.add_argument('--ewc_lambda', type=float, default=2000.0)
+    # Replay / Herding (shared replay training path)
+    parser.add_argument('--replay_capacity', type=int, default=10000)
+    parser.add_argument('--replay_batch_size', type=int, default=16)
+    parser.add_argument('--replay_weight', type=float, default=0.5)
+    parser.add_argument('--noise_std', type=float, default=0.01)
+    # Herding
+    parser.add_argument('--herding_capacity_per_class', type=int, default=20)
     args = parser.parse_args()
 
     is_stateless = args.mode in ['stateless', 'replay_stateless']
@@ -79,14 +93,15 @@ def main():
         print(f"Detected {total_classes} total classes across exercises.")
 
     ModelClass = _ARCH_REGISTRY[args.arch]
-    model = ModelClass(in_channels=10, d_model=128, num_classes=total_classes, num_layers=4).to(device)
-    optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+    model = ModelClass(in_channels=10, d_model=args.d_model,
+                       num_classes=total_classes, num_layers=args.num_layers).to(device)
+    optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     criterion = nn.CrossEntropyLoss()
 
     save_dir = setup_save_directory(f"{args.scenario}_{args.arch}_{args.mode}", args.exercise)
 
-    memory_buffer = SimpleMemoryBuffer(capacity=10000) if 'replay' in args.mode else None
-    herding_buffer = HerdingBuffer(capacity_per_class=20) if args.mode == 'herding_stateful' else None
+    memory_buffer  = SimpleMemoryBuffer(capacity=args.replay_capacity) if 'replay' in args.mode else None
+    herding_buffer = HerdingBuffer(capacity_per_class=args.herding_capacity_per_class) if args.mode == 'herding_stateful' else None
     fisher_dict = None
     optpar_dict = None
 
@@ -97,9 +112,18 @@ def main():
             "scenario": args.scenario,
             "exercise": args.exercise,
             "subject": args.subject,
+            "d_model": args.d_model,
+            "num_layers": args.num_layers,
             "batch_size": args.batch_size,
             "epochs_per_task": args.epochs_per_task,
-            "learning_rate": args.lr
+            "learning_rate": args.lr,
+            "weight_decay": args.weight_decay,
+            "ewc_lambda": args.ewc_lambda,
+            "replay_capacity": args.replay_capacity,
+            "replay_batch_size": args.replay_batch_size,
+            "replay_weight": args.replay_weight,
+            "noise_std": args.noise_std,
+            "herding_capacity_per_class": args.herding_capacity_per_class,
         },
         "training_history": {},
         "immediate_performance": {},
@@ -137,22 +161,29 @@ def main():
                 case 'replay_stateless':
                     epoch_loss, epoch_acc = training_functions.train_replay_stateless(
                         model, train_loader, optimizer, criterion, device,
-                        memory_buffer=memory_buffer, replay_batch_size=16)
+                        memory_buffer=memory_buffer,
+                        replay_batch_size=args.replay_batch_size)
 
                 case 'replay_stateful':
                     epoch_loss, epoch_acc = training_functions.train_replay_stateful(
                         model, train_loader, optimizer, criterion, device,
-                        memory_buffer=memory_buffer, replay_batch_size=16)
+                        memory_buffer=memory_buffer,
+                        replay_batch_size=args.replay_batch_size,
+                        replay_weight=args.replay_weight,
+                        noise_std=args.noise_std)
 
                 case 'ewc_stateful':
                     epoch_loss, epoch_acc = training_functions.train_ewc_stateful(
                         model, train_loader, optimizer, criterion, device,
-                        fisher_dict=fisher_dict, optpar_dict=optpar_dict, ewc_lambda=2000)
+                        fisher_dict=fisher_dict, optpar_dict=optpar_dict,
+                        ewc_lambda=args.ewc_lambda)
 
                 case 'herding_stateful':
                     epoch_loss, epoch_acc = training_functions.train_replay_stateful(
                         model, train_loader, optimizer, criterion, device,
-                        memory_buffer=herding_buffer, replay_batch_size=16)
+                        memory_buffer=herding_buffer,
+                        replay_batch_size=args.replay_batch_size,
+                        noise_std=args.noise_std)
 
             task_epoch_losses.append(epoch_loss)
             task_epoch_accs.append(epoch_acc)
