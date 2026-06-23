@@ -102,8 +102,7 @@ def main():
 
     memory_buffer  = SimpleMemoryBuffer(capacity=args.replay_capacity) if 'replay' in args.mode else None
     herding_buffer = HerdingBuffer(capacity_per_class=args.herding_capacity_per_class) if args.mode == 'herding_stateful' else None
-    fisher_dict = None
-    optpar_dict = None
+    ewc_tasks = []  # list of (fisher_dict, optpar_dict) — one entry per completed task
 
     eval_results = {
         "metadata": {
@@ -175,7 +174,7 @@ def main():
                 case 'ewc_stateful':
                     epoch_loss, epoch_acc = training_functions.train_ewc_stateful(
                         model, train_loader, optimizer, criterion, device,
-                        fisher_dict=fisher_dict, optpar_dict=optpar_dict,
+                        ewc_tasks=ewc_tasks,
                         ewc_lambda=args.ewc_lambda)
 
                 case 'herding_stateful':
@@ -209,13 +208,7 @@ def main():
             case 'ewc_stateful':
                 print("Computing Fisher Information Matrix...")
                 curr_fisher, curr_optpar = training_functions.compute_fisher(model, train_loader, device)
-                if fisher_dict is None:
-                    fisher_dict = curr_fisher
-                    optpar_dict = curr_optpar
-                else:
-                    for name in fisher_dict:
-                        fisher_dict[name] += curr_fisher[name]
-                        optpar_dict[name] = curr_optpar[name]
+                ewc_tasks.append((curr_fisher, curr_optpar))
 
         # Immediate evaluation
         imm_loss, imm_acc, imm_per_class = evaluation_functions.evaluate(

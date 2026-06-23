@@ -224,7 +224,7 @@ def train_replay_stateful(model, task_loader, optimizer, criterion, device, memo
     
     return epoch_loss, epoch_acc
 
-def train_ewc_stateful(model, task_loader, optimizer, criterion, device, fisher_dict=None, optpar_dict=None, ewc_lambda=1000):
+def train_ewc_stateful(model, task_loader, optimizer, criterion, device, ewc_tasks=None, ewc_lambda=1000):
     """
     Continual learning training loop WITH Elastic Weight Consolidation (EWC).
     Maintains the hidden state across batches, and penalizes the optimizer
@@ -265,23 +265,19 @@ def train_ewc_stateful(model, task_loader, optimizer, criterion, device, fisher_
         # 3. Standard Classification Loss
         loss = criterion(logits, labels)
         
-        # --- NEW CL LOGIC: EWC PENALTY ---
-        # 4. If we have finished at least one previous subject, apply the penalty
+        # --- EWC PENALTY ---
+        # Sum penalties from every previous task independently.
+        # Head params are excluded so the classifier can freely learn new classes (fix for CIL).
         ewc_loss = 0.0
-        if fisher_dict is not None and optpar_dict is not None:
-            for name, param in model.named_parameters():
-                if name in fisher_dict:
-                    # Fisher acts as the 'stiffness' multiplier for the spring
-                    fisher = fisher_dict[name]
-                    # Optpar is the 'anchor point' (the optimal weight from Subject 1)
-                    optpar = optpar_dict[name]
-                    
-                    # Penalty = Fisher * (Current_Weight - Old_Weight)^2
-                    ewc_loss += (fisher * (param - optpar).pow(2)).sum()
-            
-            # Combine the losses using the lambda scaling factor
+        if ewc_tasks:
+            for task_fisher, task_optpar in ewc_tasks:
+                for name, param in model.named_parameters():
+                    if name.startswith('head.'):
+                        continue
+                    if name in task_fisher:
+                        ewc_loss += (task_fisher[name] * (param - task_optpar[name]).pow(2)).sum()
             loss = loss + (ewc_lambda * ewc_loss)
-        # ---------------------------------
+        # -------------------
 
         # 5. Backpropagate the combined loss
         loss.backward()
@@ -390,13 +386,14 @@ def compute_fisher(model, task_loader, device):
             if param.grad is not None:
                 fisher_dict[name] += param.grad.data.pow(2) / len(task_loader)
 
-    # Normalize per-layer to [0, 1] so ewc_lambda is the only scale factor.
-    # Without this, subjects with large gradient magnitudes produce Fisher values
-    # that dominate the EWC penalty and prevent learning on subsequent tasks.
-    for name in fisher_dict:
-        layer_max = fisher_dict[name].max()
-        if layer_max > 0:
-            fisher_dict[name] = fisher_dict[name] / layer_max
+    # Clip Fisher at global 99th percentile to suppress extreme outlier values
+    # that over-constrain specific weights and block learning on new tasks,
+    # while preserving relative importance structure across layers.
+    all_vals = torch.cat([fisher_dict[n].flatten() for n in fisher_dict])
+    clip_val = torch.quantile(all_vals, 0.99).item()
+    if clip_val > 0:
+        for name in fisher_dict:
+            fisher_dict[name] = fisher_dict[name].clamp(max=clip_val)
 
     return fisher_dict, optpar_dict
 

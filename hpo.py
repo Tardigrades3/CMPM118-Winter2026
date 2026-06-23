@@ -145,7 +145,7 @@ def _suggest_cl_params(trial, mode):
     space  = _CL_SEARCH_SPACES.get(mode, [])
 
     if 'ewc_lambda' in space:
-        params['ewc_lambda'] = trial.suggest_float('ewc_lambda', 1.0, 1000.0, log=True)
+        params['ewc_lambda'] = trial.suggest_float('ewc_lambda', 100.0, 20000.0, log=True)
 
     if 'replay_weight' in space:
         params['replay_weight'] = trial.suggest_float('replay_weight', 0.1, 0.9)
@@ -173,8 +173,7 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
                       if 'replay' in mode else None)
     herding_buffer = (HerdingBuffer(capacity_per_class=cl_params.get('capacity_per_class', 20))
                       if mode == 'herding_stateful' else None)
-    fisher_dict = None
-    optpar_dict = None
+    ewc_tasks = []
 
     imm_accs = []
 
@@ -205,7 +204,7 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
             elif mode == 'ewc_stateful':
                 training_functions.train_ewc_stateful(
                     model, train_loader, optimizer, criterion, device,
-                    fisher_dict=fisher_dict, optpar_dict=optpar_dict,
+                    ewc_tasks=ewc_tasks,
                     ewc_lambda=cl_params.get('ewc_lambda', 2000))
 
             elif mode == 'herding_stateful':
@@ -228,12 +227,7 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
         elif mode == 'ewc_stateful':
             curr_fisher, curr_optpar = training_functions.compute_fisher(
                 model, train_loader, device)
-            if fisher_dict is None:
-                fisher_dict, optpar_dict = curr_fisher, curr_optpar
-            else:
-                for name in fisher_dict:
-                    fisher_dict[name] += curr_fisher[name]
-                    optpar_dict[name]  = curr_optpar[name]
+            ewc_tasks.append((curr_fisher, curr_optpar))
 
         _, acc, _ = evaluation_functions.evaluate(model, test_loader, criterion, device)
         imm_accs.append(acc)
