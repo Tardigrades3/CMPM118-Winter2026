@@ -60,13 +60,13 @@ def main():
 
     if args.scenario == 'dil':
         print("Building Domain-Incremental stream (subject-to-subject)...")
-        task_streams = ss_preprocessing.build_ss_task_streams(
+        task_streams, total_classes = ss_preprocessing.build_ss_task_streams(
             exercise_number=args.exercise,
             path=args.data_path,
             shuffle=is_stateless,
             batch_size=args.batch_size
         )
-        total_classes = 17  # NinaPro DB1 Ex 1
+        print(f"Detected {total_classes} total classes for Exercise {args.exercise}.")
 
     elif args.scenario == 'cil':
         print(f"Building Class-Incremental stream for Subject {args.subject} (exercise-to-exercise)...")

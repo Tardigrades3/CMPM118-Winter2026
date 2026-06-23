@@ -23,14 +23,24 @@ def padding(batch):
 
 
 def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_subjects=27):
-    """Domain-Incremental Learning (DIL) stream: loops through subjects for a specific exercise."""
+    """Domain-Incremental Learning (DIL) stream: loops through subjects for a specific exercise.
+
+    Returns (task_stream, total_classes) where total_classes is inferred from the
+    maximum stimulus label seen across all subjects, matching the CIL convention.
+    """
     task_stream = []
+    max_label = 0
 
     for subject in range(num_subjects):
         base_path = f"{path}/s{subject + 1}/S{subject + 1}_A1_E{exercise_number}.mat"
         data = signal.load_data(base_path)
 
         x_train, y_train, x_test, y_test, _cw = signal.preprocessing_internals(data)
+
+        if len(y_train) > 0:
+            max_label = max(max_label, int(np.max(y_train)))
+        if len(y_test) > 0:
+            max_label = max(max_label, int(np.max(y_test)))
 
         train_loader = DataLoader(
             signal.NinaProDataset(x_train, y_train),
@@ -55,7 +65,7 @@ def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_sub
             'test': test_loader
         })
 
-    return task_stream
+    return task_stream, max_label + 1
 
 
 def build_cil_multi_exercise_stream(subject_id, path, batch_size=32, shuffle=True):

@@ -22,8 +22,6 @@ def evaluate(model, test_loader, criterion, device):
             attention_mask = attention_mask.to(device)
 
             logits, _ = model(x=sequences, states=None, attention_mask=attention_mask)
-            num_classes = logits.shape[-1]
-
             loss = criterion(logits, labels)
             total_loss += loss.item()
 
@@ -41,8 +39,8 @@ def evaluate(model, test_loader, criterion, device):
     eval_acc = correct_predictions / total_samples
 
     per_class_acc = {
-        f"class_{i}": (class_correct.get(i, 0) / class_total[i]) if class_total.get(i, 0) > 0 else 0.0
-        for i in range(num_classes)
+        f"class_{i}": class_correct.get(i, 0) / class_total[i]
+        for i in sorted(class_total.keys())
     }
 
     return eval_loss, eval_acc, per_class_acc

@@ -148,7 +148,7 @@ def train_replay_stateless(model, task_loader, optimizer, criterion, device, mem
     
     return epoch_loss, epoch_acc
 
-def train_replay_stateful(model, task_loader, optimizer, criterion, device, memory_buffer=None, replay_batch_size=16, replay_weight = 0.5):
+def train_replay_stateful(model, task_loader, optimizer, criterion, device, memory_buffer=None, replay_batch_size=16, replay_weight=0.5, noise_std=0.01):
     """
     Continual learning training loop WITH Experience Replay.
     Maintains the hidden state for the current data stream, while running
@@ -193,7 +193,7 @@ def train_replay_stateful(model, task_loader, optimizer, criterion, device, memo
             # Sample historical data
             replay_seqs, replay_labels, replay_masks = memory_buffer.sample(replay_batch_size)
             
-            noise = torch.randn_like(replay_seqs) * 0.01 
+            noise = torch.randn_like(replay_seqs) * noise_std
             replay_seqs = replay_seqs + noise
             
             replay_seqs = replay_seqs.to(device)
