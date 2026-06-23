@@ -101,8 +101,6 @@ def load_data(path):
     mat = loadmat(path) 
     emg = mat['emg']
 
-    print(f"subject #{mat['subject']}") # subject number
-    print(f"exercise #{mat['exercise']}") # exercise number
 
     data = pd.DataFrame(mat['emg'])
     data['stimulus'] = mat['restimulus']
@@ -134,8 +132,6 @@ def preprocessing_internals(data):
     X_train, y_train, r_train = windowing(emg_norm, train_reps, gestures, win_len, win_stride)
     X_test, y_test, r_test = windowing(emg_norm, test_reps, gestures, win_len, win_stride)
     overlap = np.intersect1d(r_train, r_test)
-    print(pd.Series(y_train).value_counts())
-    print(pd.Series(y_test).value_counts())
 
     if len(overlap) != 0:
         raise Exception(f'repetitions leaked between train and test for repetition {overlap}')

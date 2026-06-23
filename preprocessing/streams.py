@@ -47,7 +47,7 @@ def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_sub
             batch_size=batch_size,
             shuffle=shuffle,
             collate_fn=padding,
-            num_workers=4,
+            num_workers=2,
             pin_memory=True,
             persistent_workers=True
         )
@@ -95,7 +95,7 @@ def build_cil_multi_exercise_stream(subject_id, path, batch_size=32, shuffle=Tru
             batch_size=batch_size,
             shuffle=shuffle,
             collate_fn=padding,
-            num_workers=4,
+            num_workers=2,
             pin_memory=True,
             persistent_workers=True
         )

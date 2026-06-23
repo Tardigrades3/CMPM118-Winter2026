@@ -341,7 +341,7 @@ def compute_fisher(model, task_loader, device):
     Computes the Fisher Information Matrix to determine weight importance.
     Called once at the very end of training on a specific subject.
     """
-    model.eval()
+    model.train()
     fisher_dict = {}
     optpar_dict = {}
     

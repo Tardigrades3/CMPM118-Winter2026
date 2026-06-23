@@ -93,20 +93,23 @@ def _arch_objective(trial, args, device):
     criterion  = nn.CrossEntropyLoss()
     ModelClass = _ARCH_REGISTRY[args.arch]
 
-    # num_classes is fixed per exercise — infer from first subject
-    _, _, num_classes = _subject_loaders(args.subjects[0], args.exercise,
-                                         args.data_path, batch_size, True)
-
-    # Single shared model trained sequentially (matches actual DIL setup)
-    model     = ModelClass(in_channels=10, d_model=d_model,
-                           num_classes=num_classes, num_layers=num_layers).to(device)
-    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    # num_classes and model are built on the first subject load to avoid a redundant
+    # extra data load before the loop.
+    model     = None
+    optimizer = None
+    num_classes = None
 
     imm_accs = []
     try:
         for step, subj_id in enumerate(args.subjects):
-            train_loader, test_loader, _ = _subject_loaders(
+            train_loader, test_loader, nc = _subject_loaders(
                 subj_id, args.exercise, args.data_path, batch_size, True)
+
+            if model is None:
+                num_classes = nc
+                model     = ModelClass(in_channels=10, d_model=d_model,
+                                       num_classes=num_classes, num_layers=num_layers).to(device)
+                optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
             for _ in range(args.epochs_per_task):
                 training_functions.train_naive_stateless(
