@@ -22,17 +22,37 @@ MODES="stateless stateful replay_stateful ewc_stateful herding_stateful"
 EPOCHS=5
 BATCH=32
 LR=1e-4
+WEIGHT_DECAY=0.01
+D_MODEL=128
+NUM_LAYERS=4
+EWC_LAMBDA=2000
+REPLAY_CAPACITY=10000
+REPLAY_BATCH=16
+REPLAY_WEIGHT=0.5
+NOISE_STD=0.01
+HERDING_CPP=20   # capacity_per_class
 DRY_RUN=false
 
 # ── argument parsing ─────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --data)      DATA="$2";     shift 2 ;;
-    --subjects)  SUBJECTS="$2"; shift 2 ;;
-    --archs)     ARCHS="$2";    shift 2 ;;
-    --modes)     MODES="$2";    shift 2 ;;
-    --epochs)    EPOCHS="$2";   shift 2 ;;
-    --dry-run)   DRY_RUN=true;  shift   ;;
+    --data)             DATA="$2";         shift 2 ;;
+    --subjects)         SUBJECTS="$2";     shift 2 ;;
+    --archs)            ARCHS="$2";        shift 2 ;;
+    --modes)            MODES="$2";        shift 2 ;;
+    --epochs)           EPOCHS="$2";       shift 2 ;;
+    --batch-size)       BATCH="$2";        shift 2 ;;
+    --lr)               LR="$2";           shift 2 ;;
+    --weight-decay)     WEIGHT_DECAY="$2"; shift 2 ;;
+    --d-model)          D_MODEL="$2";      shift 2 ;;
+    --num-layers)       NUM_LAYERS="$2";   shift 2 ;;
+    --ewc-lambda)       EWC_LAMBDA="$2";   shift 2 ;;
+    --replay-capacity)  REPLAY_CAPACITY="$2"; shift 2 ;;
+    --replay-batch)     REPLAY_BATCH="$2"; shift 2 ;;
+    --replay-weight)    REPLAY_WEIGHT="$2"; shift 2 ;;
+    --noise-std)        NOISE_STD="$2";    shift 2 ;;
+    --herding-cpp)      HERDING_CPP="$2";  shift 2 ;;
+    --dry-run)          DRY_RUN=true;      shift   ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
   esac
 done
@@ -74,9 +94,18 @@ for ARCH in $ARCHS; do
         --subject   "$SUBJ"
         --mode      "$MODE"
         --data_path "$DATA"
-        --batch_size "$BATCH"
-        --epochs_per_task "$EPOCHS"
-        --lr "$LR"
+        --batch_size        "$BATCH"
+        --epochs_per_task   "$EPOCHS"
+        --lr                "$LR"
+        --weight_decay      "$WEIGHT_DECAY"
+        --d_model           "$D_MODEL"
+        --num_layers        "$NUM_LAYERS"
+        --ewc_lambda        "$EWC_LAMBDA"
+        --replay_capacity   "$REPLAY_CAPACITY"
+        --replay_batch_size "$REPLAY_BATCH"
+        --replay_weight     "$REPLAY_WEIGHT"
+        --noise_std         "$NOISE_STD"
+        --herding_capacity_per_class "$HERDING_CPP"
       )
 
       if $DRY_RUN; then
