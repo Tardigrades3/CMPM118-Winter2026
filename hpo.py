@@ -145,7 +145,7 @@ def _suggest_cl_params(trial, mode):
     space  = _CL_SEARCH_SPACES.get(mode, [])
 
     if 'ewc_lambda' in space:
-        params['ewc_lambda'] = trial.suggest_float('ewc_lambda', 100.0, 20000.0, log=True)
+        params['ewc_lambda'] = trial.suggest_float('ewc_lambda', 1.0, 1000.0, log=True)
 
     if 'replay_weight' in space:
         params['replay_weight'] = trial.suggest_float('replay_weight', 0.1, 0.9)

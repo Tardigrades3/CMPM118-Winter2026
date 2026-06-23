@@ -1,10 +1,21 @@
-\venv
-\.venv
+venv/
+.venv/
 
-\__pycache__
+__pycache__/
+*.pyc
+*.pyo
 
-\NinaProData
+NinaProData/
+NinaProData_DB1/
+NinaProData_DB2/
+NinaProData_DB5/
 
-runpodctl.tar.gz
+checkpoints/
+logs/
 
-\.claude
+*.pt
+*.tar.gz
+
+results/plots/
+
+.claude

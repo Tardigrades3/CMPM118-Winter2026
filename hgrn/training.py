@@ -389,6 +389,14 @@ def compute_fisher(model, task_loader, device):
         for name, param in model.named_parameters():
             if param.grad is not None:
                 fisher_dict[name] += param.grad.data.pow(2) / len(task_loader)
-                
+
+    # Normalize per-layer to [0, 1] so ewc_lambda is the only scale factor.
+    # Without this, subjects with large gradient magnitudes produce Fisher values
+    # that dominate the EWC penalty and prevent learning on subsequent tasks.
+    for name in fisher_dict:
+        layer_max = fisher_dict[name].max()
+        if layer_max > 0:
+            fisher_dict[name] = fisher_dict[name] / layer_max
+
     return fisher_dict, optpar_dict
 
