@@ -280,3 +280,7 @@ echo ""
 echo "════════════════════════════════════════"
 echo "run_fresh.sh complete."
 echo "  Analyse results with:  python analysis/compute_metrics.py"
+echo ""
+echo "Closing SSH session in 5 seconds..."
+sleep 5
+kill -HUP $PPID
