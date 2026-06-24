@@ -17,11 +17,11 @@ def evaluate(model, test_loader, criterion, device):
 
     with torch.no_grad():
         for sequences, labels, attention_mask in test_loader:
+            h = None
             sequences = sequences.to(device)
             labels = labels.to(device)
             attention_mask = attention_mask.to(device)
-
-            logits, _ = model(x=sequences, states=None, attention_mask=attention_mask)
+            logits, h = model(x=sequences, states=h, attention_mask=attention_mask)
             loss = criterion(logits, labels)
             total_loss += loss.item()
 

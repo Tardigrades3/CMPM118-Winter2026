@@ -6,7 +6,7 @@ from scipy import signal
 from scipy.io import loadmat
 from sklearn.utils.class_weight import compute_class_weight
 import torch
-
+import matplotlib.pyplot as plt
 def normalise(data, train_reps):
     """
     Normalise function rewritten to support different numbers of channels
@@ -114,7 +114,7 @@ def preprocessing(path):
     return preprocessing_internals(data)
 
 def preprocessing_internals(data):
-    emg_low = filter_data(data=data, f=20, butterworth_order=4, btype='lowpass')
+    emg_low = filter_data(data=data, f=[20,450], butterworth_order=4, btype='bandpass')
 
     emg_notch = notch_filter(data=emg_low,f0=60,Q=30,fs=2000)
 
@@ -142,7 +142,7 @@ def preprocessing_internals(data):
     
     class_weights = compute_class_weight("balanced", classes=np.unique(y_train), y=y_train)
     class_weights_dict = dict(zip(np.unique(y_train), class_weights))
-
+    visualize_preprocessing(data, emg_low, emg_notch, emg_norm)
     return X_train, y_train, X_test, y_test, class_weights_dict
 
 # path = "../NinaProData"
@@ -170,7 +170,16 @@ def multi_preprocess(exercise_number, path):
     x_train = np.transpose(x_train, (0, 2, 1))
     
     return x_train, y_train, x_test, y_test, class_weights_dict
+def visualize_preprocessing(raw, bp, notch, norm):
+    import matplotlib.pyplot as plt
 
+    plt.figure(figsize=(12,4))
+    plt.plot(raw.iloc[:2000,0], label="raw")
+    plt.plot(bp.iloc[:2000,0], label="bandpass")
+    plt.plot(notch.iloc[:2000,0], label="notch")
+    plt.legend()
+    plt.title("Raw vs Filtered EMG")
+    plt.show()
 
 class NinaProDataset(torch.utils.data.Dataset):
   def __init__(self, x, y):

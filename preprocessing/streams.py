@@ -45,11 +45,11 @@ def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_sub
         train_loader = DataLoader(
             signal.NinaProDataset(x_train, y_train),
             batch_size=batch_size,
-            shuffle=shuffle,
+            shuffle=True,
             collate_fn=padding,
-            num_workers=4,
+            num_workers=0,
             pin_memory=True,
-            persistent_workers=True
+            persistent_workers=False
         )
 
         test_loader = DataLoader(
@@ -93,11 +93,11 @@ def build_cil_multi_exercise_stream(subject_id, path, batch_size=32, shuffle=Tru
         train_loader = DataLoader(
             signal.NinaProDataset(x_train, y_train_offset),
             batch_size=batch_size,
-            shuffle=shuffle,
+            shuffle=True,
             collate_fn=padding,
-            num_workers=4,
+            num_workers=0,
             pin_memory=True,
-            persistent_workers=True
+            persistent_workers=False
         )
 
         test_loader = DataLoader(
