@@ -1,8 +1,0 @@
-{
-  "trial": 6,
-  "value": 0.7345265100159774,
-  "params": {
-    "replay_batch_size": 16,
-    "capacity_per_class": 5
-  }
-}
