@@ -242,25 +242,31 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
 
 
 def _cl_objective(trial, args, arch_params, device):
-    cl_params  = _suggest_cl_params(trial, args.mode)
-    d_model    = arch_params['d_model']
-    num_layers = arch_params['num_layers']
-    lr         = arch_params['lr']
+    cl_params    = _suggest_cl_params(trial, args.mode)
+    d_model      = arch_params['d_model']
+    num_layers   = arch_params['num_layers']
+    lr           = arch_params['lr']
     weight_decay = arch_params['weight_decay']
-    batch_size = arch_params.get('batch_size', 32)
+    batch_size   = arch_params.get('batch_size', 32)
 
     ModelClass = _ARCH_REGISTRY[args.arch]
     criterion  = nn.CrossEntropyLoss()
     shuffle    = 'stateless' in args.mode
 
-    subject_scores = []
-    for step, subj_id in enumerate(args.subjects):
-        task_streams, total_classes = build_cil_multi_exercise_stream(
-            subject_id=subj_id,
-            path=args.data_path,
-            batch_size=batch_size,
-            shuffle=shuffle,
-        )
+    if args.scenario == 'dil':
+        # Single DIL task stream: proxy subjects run sequentially (one model, all subjects)
+        task_streams = []
+        total_classes = None
+        for subj_id in args.subjects:
+            train_loader, test_loader, nc = _subject_loaders(
+                subj_id, args.exercise, args.data_path, batch_size, shuffle)
+            task_streams.append({
+                'task_id': f'subject_{subj_id}',
+                'train': train_loader,
+                'test': test_loader,
+            })
+            if total_classes is None:
+                total_classes = nc
 
         model     = ModelClass(in_channels=10, d_model=d_model,
                                num_classes=total_classes, num_layers=num_layers).to(device)
@@ -278,15 +284,46 @@ def _cl_objective(trial, args, arch_params, device):
         avg_final  = float(np.mean(final_accs))
         deltas     = final_accs - imm_accs
         forgetting = float(np.mean(np.maximum(0.0, -deltas[:-1]))) if len(deltas) > 1 else 0.0
-        # Objective: maximise final accuracy, penalise forgetting
         score = avg_final - 0.5 * forgetting
-        subject_scores.append(score)
-
-        trial.report(float(np.mean(subject_scores)), step=step)
+        trial.report(score, step=0)
         if trial.should_prune():
             raise optuna.TrialPruned()
+        return score
 
-    return float(np.mean(subject_scores))
+    else:  # CIL: independent run per proxy subject, scores averaged
+        subject_scores = []
+        for step, subj_id in enumerate(args.subjects):
+            task_streams, total_classes = build_cil_multi_exercise_stream(
+                subject_id=subj_id,
+                path=args.data_path,
+                batch_size=batch_size,
+                shuffle=shuffle,
+            )
+
+            model     = ModelClass(in_channels=10, d_model=d_model,
+                                   num_classes=total_classes, num_layers=num_layers).to(device)
+            optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+            try:
+                imm_accs, final_accs = _run_one_cil_subject(
+                    model, optimizer, criterion, device,
+                    task_streams, args.mode, cl_params, args.epochs_per_task)
+            finally:
+                del model
+                if device.type == 'cuda':
+                    torch.cuda.empty_cache()
+
+            avg_final  = float(np.mean(final_accs))
+            deltas     = final_accs - imm_accs
+            forgetting = float(np.mean(np.maximum(0.0, -deltas[:-1]))) if len(deltas) > 1 else 0.0
+            score = avg_final - 0.5 * forgetting
+            subject_scores.append(score)
+
+            trial.report(float(np.mean(subject_scores)), step=step)
+            if trial.should_prune():
+                raise optuna.TrialPruned()
+
+        return float(np.mean(subject_scores))
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -320,6 +357,10 @@ def main():
     p_cl.add_argument('--mode', required=True,
                       choices=list(_CL_SEARCH_SPACES),
                       help="CL method to tune")
+    p_cl.add_argument('--scenario', default='cil', choices=['cil', 'dil'],
+                      help="'cil': proxy is per-subject exercise stream; 'dil': proxy is cross-subject stream")
+    p_cl.add_argument('--exercise', type=int, default=1,
+                      help="Exercise number for DIL proxy (only used when --scenario dil)")
     # Architecture params — load from phase-1 JSON or provide individually
     p_cl.add_argument('--arch_params',
                       help="Path to phase-1 best-params JSON (e.g. results/hpo_arch_hgrn_best.json)")
@@ -337,7 +378,7 @@ def main():
     if args.phase == 'arch':
         study_name = args.study_name or f"hpo_arch_{args.arch}_ex{args.exercise}"
     else:
-        study_name = args.study_name or f"hpo_cl_{args.mode}_{args.arch}"
+        study_name = args.study_name or f"hpo_cl_{args.mode}_{args.arch}_{args.scenario}"
 
     storage = f"sqlite:///{args.out_dir}/{study_name}.db"
 
@@ -388,8 +429,13 @@ def main():
         for k, v in arch_params.items():
             print(f"  {k}: {v}")
 
-        print(f"\nPhase 2 — CL Method HPO ({args.mode}, CIL proxy)")
+        scenario_desc = ('DIL proxy' if args.scenario == 'dil'
+                         else 'CIL proxy')
+        print(f"\nPhase 2 — CL Method HPO ({args.mode}, {scenario_desc})")
+        print(f"  scenario    : {args.scenario}")
         print(f"  subjects    : {args.subjects}")
+        if args.scenario == 'dil':
+            print(f"  exercise    : {args.exercise}")
         print(f"  epochs/task : {args.epochs_per_task}")
         print(f"  trials      : {args.n_trials}  (+ {n_existing} already done)")
         print(f"  storage     : {storage}")

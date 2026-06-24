@@ -112,7 +112,7 @@ def preprocessing(path):
     return preprocessing_internals(data)
 
 def preprocessing_internals(data):
-    emg_low = filter_data(data=data, f=20, butterworth_order=4, btype='lowpass')
+    emg_low = filter_data(data=data, f=[20, 450], butterworth_order=4, btype='bandpass')
 
     emg_notch = notch_filter(data=emg_low,f0=60,Q=30,fs=2000)
 
