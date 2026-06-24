@@ -28,6 +28,9 @@
 
 set -uo pipefail
 
+# Activate the project venv so all dependencies (fla, optuna, etc.) are available
+source "$(dirname "$0")/venv/bin/activate"
+
 # ── defaults ──────────────────────────────────────────────────────────────────
 DATA="./NinaProData"
 ARCH="hgrn"

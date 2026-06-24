@@ -253,8 +253,9 @@ def main():
         }
         print(f"Final eval on {task_id} | Loss: {fin_loss:.4f} | Acc: {fin_acc:.4f}")
 
+    subject_id = args.subject if args.scenario == 'cil' else None
     saved_path = evaluation_functions.save_evaluation_results(
-        eval_results, f"{args.scenario}_{args.mode}", args.exercise)
+        eval_results, f"{args.scenario}_{args.mode}", args.exercise, subject_id=subject_id)
     print(f"\nEvaluation saved to: {saved_path}")
 
 
