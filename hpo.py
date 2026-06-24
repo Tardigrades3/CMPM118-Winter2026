@@ -173,7 +173,8 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
                       if 'replay' in mode else None)
     herding_buffer = (HerdingBuffer(capacity_per_class=cl_params.get('capacity_per_class', 20))
                       if mode == 'herding_stateful' else None)
-    ewc_tasks = []
+    fisher_dict = None
+    optpar_dict = None
 
     imm_accs = []
 
@@ -204,7 +205,8 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
             elif mode == 'ewc_stateful':
                 training_functions.train_ewc_stateful(
                     model, train_loader, optimizer, criterion, device,
-                    ewc_tasks=ewc_tasks,
+                    fisher_dict=fisher_dict,
+                    optpar_dict=optpar_dict,
                     ewc_lambda=cl_params.get('ewc_lambda', 2000))
 
             elif mode == 'herding_stateful':
@@ -225,9 +227,8 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
                                             num_classes=num_classes)
 
         elif mode == 'ewc_stateful':
-            curr_fisher, curr_optpar = training_functions.compute_fisher(
+            fisher_dict, optpar_dict = training_functions.compute_fisher(
                 model, train_loader, device)
-            ewc_tasks.append((curr_fisher, curr_optpar))
 
         _, acc, _ = evaluation_functions.evaluate(model, test_loader, criterion, device)
         imm_accs.append(acc)

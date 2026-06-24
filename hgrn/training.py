@@ -224,7 +224,7 @@ def train_replay_stateful(model, task_loader, optimizer, criterion, device, memo
     
     return epoch_loss, epoch_acc
 
-def train_ewc_stateful(model, task_loader, optimizer, criterion, device, ewc_tasks=None, ewc_lambda=1000):
+def train_ewc_stateful(model, task_loader, optimizer, criterion, device, fisher_dict=None, optpar_dict=None, ewc_lambda=1000):
     """
     Continual learning training loop WITH Elastic Weight Consolidation (EWC).
     Maintains the hidden state across batches, and penalizes the optimizer
@@ -266,14 +266,11 @@ def train_ewc_stateful(model, task_loader, optimizer, criterion, device, ewc_tas
         loss = criterion(logits, labels)
         
         # --- EWC PENALTY ---
-        # Sum penalties from every previous task independently.
-        # Head params are excluded so the classifier can freely learn new classes (fix for CIL).
         ewc_loss = 0.0
-        if ewc_tasks:
-            for task_fisher, task_optpar in ewc_tasks:
-                for name, param in model.named_parameters():
-                    if name in task_fisher:
-                        ewc_loss += (task_fisher[name] * (param - task_optpar[name]).pow(2)).sum()
+        if fisher_dict is not None and optpar_dict is not None:
+            for name, param in model.named_parameters():
+                if name in fisher_dict:
+                    ewc_loss += (fisher_dict[name] * (param - optpar_dict[name]).pow(2)).sum()
             loss = loss + (ewc_lambda * ewc_loss)
         # -------------------
 
@@ -335,7 +332,7 @@ def compute_fisher(model, task_loader, device):
     Computes the Fisher Information Matrix to determine weight importance.
     Called once at the very end of training on a specific subject.
     """
-    model.train()
+    model.eval()
     fisher_dict = {}
     optpar_dict = {}
     
@@ -383,15 +380,6 @@ def compute_fisher(model, task_loader, device):
         for name, param in model.named_parameters():
             if param.grad is not None:
                 fisher_dict[name] += param.grad.data.pow(2) / len(task_loader)
-
-    # Clip Fisher at global 99th percentile to suppress extreme outlier values
-    # that over-constrain specific weights and block learning on new tasks,
-    # while preserving relative importance structure across layers.
-    all_vals = torch.cat([fisher_dict[n].flatten() for n in fisher_dict])
-    clip_val = torch.quantile(all_vals, 0.99).item()
-    if clip_val > 0:
-        for name in fisher_dict:
-            fisher_dict[name] = fisher_dict[name].clamp(max=clip_val)
 
     return fisher_dict, optpar_dict
 
