@@ -28,9 +28,6 @@
 
 set -uo pipefail
 
-# Activate the project venv so all dependencies (fla, optuna, etc.) are available
-source "$(dirname "$0")/venv/bin/activate"
-
 # ── defaults ──────────────────────────────────────────────────────────────────
 DATA="./NinaProData"
 ARCH="hgrn"
@@ -124,7 +121,7 @@ echo "  trials   : $N_TRIALS_ARCH"
 if $SKIP_ARCH_HPO; then
   echo "  [skipped — using existing $ARCH_JSON]"
 else
-  _run python hpo.py arch \
+  _run python3 hpo.py arch \
       --subjects $HPO_SUBJ_ARCH \
       --exercise "$DIL_EXERCISE" \
       --data_path "$DATA" \
@@ -145,7 +142,7 @@ else
   for CL_MODE in ewc_stateful replay_stateful herding_stateful; do
     echo ""
     echo "── $CL_MODE (dil) ──"
-    _run python hpo.py cl \
+    _run python3 hpo.py cl \
         --mode "$CL_MODE" \
         --scenario dil \
         --exercise "$DIL_EXERCISE" \
@@ -218,7 +215,7 @@ else
   for CL_MODE in ewc_stateful replay_stateful herding_stateful; do
     echo ""
     echo "── $CL_MODE (cil) ──"
-    _run python hpo.py cl \
+    _run python3 hpo.py cl \
         --mode "$CL_MODE" \
         --scenario cil \
         --subjects $HPO_SUBJ_CL \

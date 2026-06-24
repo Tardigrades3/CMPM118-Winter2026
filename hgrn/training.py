@@ -272,8 +272,6 @@ def train_ewc_stateful(model, task_loader, optimizer, criterion, device, ewc_tas
         if ewc_tasks:
             for task_fisher, task_optpar in ewc_tasks:
                 for name, param in model.named_parameters():
-                    if name.startswith('head.'):
-                        continue
                     if name in task_fisher:
                         ewc_loss += (task_fisher[name] * (param - task_optpar[name]).pow(2)).sum()
             loss = loss + (ewc_lambda * ewc_loss)

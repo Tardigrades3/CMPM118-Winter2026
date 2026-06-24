@@ -93,7 +93,7 @@ if ! $SKIP_HPO && ! $SKIP_ARCH_HPO; then
     echo "  subjects : $HPO_SUBJ_ARCH"
     echo "  trials   : $N_TRIALS_ARCH"
     echo "══════════════════════════════════════════════════"
-    _run python hpo.py arch \
+    _run python3 hpo.py arch \
         --subjects $HPO_SUBJ_ARCH \
         --exercise 1 \
         --data_path "$DATA" \
@@ -129,7 +129,7 @@ if ! $SKIP_HPO && ! $SKIP_CL_HPO; then
             echo "── $CL_MODE ($HPO_SCENARIO) ──"
             EX_ARG=""
             [[ "$HPO_SCENARIO" == "dil" ]] && EX_ARG="--exercise $DIL_EXERCISE"
-            _run python hpo.py cl \
+            _run python3 hpo.py cl \
                 --mode "$CL_MODE" \
                 --scenario "$HPO_SCENARIO" \
                 --subjects $HPO_SUBJ_CL \
@@ -211,7 +211,7 @@ for SWEEP_ARCH in $ARCHS_SWEEP; do
 
     if [[ "$SCENARIO" == "dil" ]]; then
       _run_one "${SWEEP_ARCH}_${MODE}_ex${DIL_EXERCISE}" \
-        python hgrn/train.py \
+        python3 hgrn/train.py \
         --arch            "$SWEEP_ARCH" \
         --scenario        dil \
         --exercise        "$DIL_EXERCISE" \
@@ -227,7 +227,7 @@ for SWEEP_ARCH in $ARCHS_SWEEP; do
     else
       for SUBJ in $CIL_SUBJECTS; do
         _run_one "${SWEEP_ARCH}_${MODE}_s${SUBJ}" \
-          python hgrn/train.py \
+          python3 hgrn/train.py \
           --arch            "$SWEEP_ARCH" \
           --scenario        cil \
           --subject         "$SUBJ" \
