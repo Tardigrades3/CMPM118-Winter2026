@@ -164,8 +164,9 @@ def _suggest_cl_params(trial, mode):
 
 
 def _run_one_cil_subject(model, optimizer, criterion, device,
-                         task_streams, mode, cl_params, epochs_per_task):
-    """Full CIL pass (all exercises) for one subject.
+                         task_streams, mode, cl_params, epochs_per_task,
+                         scenario='cil'):
+    """Full pass over a task stream (CIL exercises, or DIL subjects).
 
     Returns (imm_accs, final_accs) as numpy arrays of length num_tasks.
     """
@@ -182,8 +183,9 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
         train_loader = task['train']
         test_loader  = task['test']
 
-        # Herding freezes feature extractor after first task
-        if task_idx > 0 and mode == 'herding_stateful':
+        # Herding freezes feature extractor after first task — CIL only.
+        # In DIL the feature extractor must stay trainable to adapt across subjects.
+        if task_idx > 0 and mode == 'herding_stateful' and scenario == 'cil':
             for param in model.input_proj.parameters():
                 param.requires_grad = False
             for param in model.layers[0].parameters():
@@ -276,7 +278,8 @@ def _cl_objective(trial, args, arch_params, device):
         try:
             imm_accs, final_accs = _run_one_cil_subject(
                 model, optimizer, criterion, device,
-                task_streams, args.mode, cl_params, args.epochs_per_task)
+                task_streams, args.mode, cl_params, args.epochs_per_task,
+                scenario=args.scenario)
         finally:
             del model
             if device.type == 'cuda':
@@ -308,7 +311,8 @@ def _cl_objective(trial, args, arch_params, device):
             try:
                 imm_accs, final_accs = _run_one_cil_subject(
                     model, optimizer, criterion, device,
-                    task_streams, args.mode, cl_params, args.epochs_per_task)
+                    task_streams, args.mode, cl_params, args.epochs_per_task,
+                scenario=args.scenario)
             finally:
                 del model
                 if device.type == 'cuda':
