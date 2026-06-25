@@ -68,7 +68,18 @@ def main():
     # Output
     parser.add_argument('--results_dir', type=str, default='results',
                         help="Directory for eval JSONs (use a separate dir to compare branches).")
+    # Reproducibility / seeded repeats (for error bars)
+    parser.add_argument('--seed', type=int, default=None,
+                        help="Random seed for model init + data shuffling. Omit for nondeterministic.")
     args = parser.parse_args()
+
+    if args.seed is not None:
+        import random
+        import numpy as np
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        torch.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
 
     is_stateless = args.mode in ['stateless', 'replay_stateless']
 
@@ -133,6 +144,7 @@ def main():
             "replay_weight": args.replay_weight,
             "noise_std": args.noise_std,
             "herding_capacity_per_class": args.herding_capacity_per_class,
+            "seed": args.seed,
         },
         "training_history": {},
         "immediate_performance": {},
@@ -145,8 +157,12 @@ def main():
         train_loader = task['train']
         test_loader = task['test']
 
-        if task_idx > 0 and args.mode == 'herding_stateful':
-            print("Freezing input projection and first HGRN layer to prevent feature drift...")
+        # Freeze the feature extractor for herding — but ONLY for CIL. In CIL this
+        # preserves stable features while the class set grows. In DIL the whole task
+        # is adapting features to each new subject's domain, so freezing after the
+        # first subject cripples it; keep the extractor trainable there.
+        if task_idx > 0 and args.mode == 'herding_stateful' and args.scenario == 'cil':
+            print("Freezing input projection and first HGRN layer to prevent feature drift (CIL only)...")
             for param in model.input_proj.parameters():
                 param.requires_grad = False
             for param in model.layers[0].parameters():
@@ -272,7 +288,7 @@ def main():
     subject_id = args.subject if args.scenario == 'cil' else None
     saved_path = evaluation_functions.save_evaluation_results(
         eval_results, f"{args.scenario}_{args.mode}", args.exercise,
-        subject_id=subject_id, results_dir=args.results_dir)
+        subject_id=subject_id, results_dir=args.results_dir, seed=args.seed)
     print(f"\nEvaluation saved to: {saved_path}")
 
 

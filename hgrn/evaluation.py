@@ -46,7 +46,7 @@ def evaluate(model, test_loader, criterion, device):
     return eval_loss, eval_acc, per_class_acc
 
 
-def save_evaluation_results(results_dict, mode, exercise, subject_id=None, results_dir="results"):
+def save_evaluation_results(results_dict, mode, exercise, subject_id=None, results_dir="results", seed=None):
     # Second precision + subject id so a CIL sweep (many subjects finishing within
     # the same minute) does not overwrite earlier subjects' result files.
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -56,7 +56,8 @@ def save_evaluation_results(results_dict, mode, exercise, subject_id=None, resul
     os.makedirs(save_dir, exist_ok=True)
 
     subj_part = f"_s{subject_id}" if subject_id is not None else ""
-    filename = f"eval_{mode}{subj_part}_ex{exercise}_{timestamp}.json"
+    seed_part = f"_seed{seed}" if seed is not None else ""
+    filename = f"eval_{mode}{subj_part}{seed_part}_ex{exercise}_{timestamp}.json"
     filepath = os.path.join(save_dir, filename)
 
     with open(filepath, 'w') as f:

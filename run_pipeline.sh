@@ -51,6 +51,7 @@ SKIP_ARCH_HPO=false
 SKIP_CL_HPO=false
 HPO_ONLY=false
 USE_DEFAULTS=false                 # ignore HPO JSONs; use train.py argparse defaults
+SEED=""                            # optional fixed seed passed to every train.py run
 DRY_RUN=false
 
 # ── argument parsing ──────────────────────────────────────────────────────────
@@ -75,6 +76,7 @@ while [[ $# -gt 0 ]]; do
     --skip-cl-hpo)       SKIP_CL_HPO=true;     shift   ;;
     --hpo-only)          HPO_ONLY=true;        shift   ;;
     --use-defaults)      USE_DEFAULTS=true; SKIP_HPO=true; shift ;;
+    --seed)              SEED="$2";            shift 2 ;;
     --dry-run)           DRY_RUN=true;         shift   ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
   esac
@@ -234,6 +236,8 @@ else
   echo "  config   : HPO params (d_model=$D_MODEL num_layers=$NUM_LAYERS lr=$LR wd=$WEIGHT_DECAY bs=$BATCH_SIZE)"
 fi
 
+if [[ -n "$SEED" ]]; then SEED_ARG="--seed $SEED"; echo "  seed     : $SEED"; else SEED_ARG=""; fi
+
 for SWEEP_ARCH in $ARCHS_SWEEP; do
   for MODE in $MODES_SWEEP; do
     if $USE_DEFAULTS; then EXTRA=""; else EXTRA=$(_extra_args "$MODE"); fi
@@ -249,7 +253,7 @@ for SWEEP_ARCH in $ARCHS_SWEEP; do
         ${ARCH_ARGS[@]+"${ARCH_ARGS[@]}"} \
         --epochs_per_task "$EPOCHS" \
         --results_dir     "$RESULTS_DIR" \
-        $EXTRA
+        $EXTRA $SEED_ARG
     else
       for SUBJ in $CIL_SUBJECTS; do
         _run_one "${SWEEP_ARCH}_${MODE}_s${SUBJ}" \
@@ -262,7 +266,7 @@ for SWEEP_ARCH in $ARCHS_SWEEP; do
           ${ARCH_ARGS[@]+"${ARCH_ARGS[@]}"} \
           --epochs_per_task "$EPOCHS" \
           --results_dir     "$RESULTS_DIR" \
-          $EXTRA
+          $EXTRA $SEED_ARG
       done
     fi
   done
