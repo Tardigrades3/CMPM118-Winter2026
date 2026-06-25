@@ -1,0 +1,10 @@
+{
+  "trial": 3,
+  "value": 0.7693020726936858,
+  "params": {
+    "replay_weight": 0.5113875507308893,
+    "capacity": 10000,
+    "noise_std": 0.0013492834268013251,
+    "replay_batch_size": 16
+  }
+}

@@ -46,12 +46,17 @@ def evaluate(model, test_loader, criterion, device):
     return eval_loss, eval_acc, per_class_acc
 
 
-def save_evaluation_results(results_dict, mode, exercise):
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    save_dir = os.path.join(_PROJECT_ROOT, "results")
+def save_evaluation_results(results_dict, mode, exercise, subject_id=None, results_dir="results"):
+    # Second precision + subject id so a CIL sweep (many subjects finishing within
+    # the same minute) does not overwrite earlier subjects' result files.
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Allow an absolute or relative results dir so a sweep can be kept separate
+    # (e.g. results_diffexp/) from another branch's results for clean comparison.
+    save_dir = results_dir if os.path.isabs(results_dir) else os.path.join(_PROJECT_ROOT, results_dir)
     os.makedirs(save_dir, exist_ok=True)
 
-    filename = f"eval_{mode}_ex{exercise}_{timestamp}.json"
+    subj_part = f"_s{subject_id}" if subject_id is not None else ""
+    filename = f"eval_{mode}{subj_part}_ex{exercise}_{timestamp}.json"
     filepath = os.path.join(save_dir, filename)
 
     with open(filepath, 'w') as f:

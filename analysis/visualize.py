@@ -13,6 +13,12 @@ import json
 import os
 import argparse
 import numpy as np
+import matplotlib
+# Non-interactive backend: figures are written to results/plots/ via savefig and
+# no GUI window pops up (so this is safe to run headless / over SSH). Honour an
+# externally-set MPLBACKEND if the user wants an interactive backend instead.
+if not os.environ.get("MPLBACKEND"):
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -61,7 +67,7 @@ def plot_accuracy(json_path):
     out = _output_path(json_path, "_accuracy")
     plt.savefig(out, dpi=300)
     print(f"Saved: {out}")
-    plt.show()
+    plt.close()
 
 
 def plot_bwt(json_path):
@@ -100,7 +106,7 @@ def plot_bwt(json_path):
     out = _output_path(json_path, "_bwt")
     plt.savefig(out, dpi=300, bbox_inches='tight')
     print(f"Saved: {out}")
-    plt.show()
+    plt.close()
 
 
 def main():

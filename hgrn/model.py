@@ -2,6 +2,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# GPU-accelerated chunked HGRN scan (Triton/FLA). Falls back to a pure-PyTorch
+# timestep loop when FLA is unavailable (e.g. local CPU / macOS dev boxes) so the
+# same code runs on EC2 GPUs and on a laptop without an import error.
+try:
+    from fla.ops.hgrn import chunk_hgrn
+    _HAS_FLA = True
+except ImportError:
+    chunk_hgrn = None
+    _HAS_FLA = False
+
+
 class FastHGRNLayer(nn.Module):
     def __init__(self, d_model, layer_idx, num_layers):
         super().__init__()
@@ -44,20 +55,28 @@ class FastHGRNLayer(nn.Module):
         # Candidate update
         x_recurrence = i * c
 
-        # Initialize state if needed
-        if state is None:
-            state = torch.zeros(B, D, device=x.device)
-
-        outputs = []
-        h = state
-
-        # Pure PyTorch recurrence (replaces chunk_hgrn)
-        for t in range(T):
-            h = f[:, t] * h + x_recurrence[:, t]
-            outputs.append(h.unsqueeze(1))
-
-        h_out = torch.cat(outputs, dim=1)
-        final_state = h
+        if _HAS_FLA and x.is_cuda:
+            # GPU path: the FLA kernel expects the forget gate in log-space and
+            # runs the whole (B, T, D) linear recurrence in one chunked launch.
+            g = torch.log(f)
+            h_out, final_state = chunk_hgrn(
+                x=x_recurrence,
+                g=g,
+                initial_state=state,
+                output_final_state=True,
+            )
+        else:
+            # CPU fallback: mathematically identical sequential scan
+            # (h_t = f_t * h_{t-1} + x_recurrence_t  ==  exp(log f) recurrence).
+            if state is None:
+                state = torch.zeros(B, D, device=x.device, dtype=x.dtype)
+            outputs = []
+            h = state
+            for t in range(T):
+                h = f[:, t] * h + x_recurrence[:, t]
+                outputs.append(h.unsqueeze(1))
+            h_out = torch.cat(outputs, dim=1)
+            final_state = h
 
         # Output gating
         g_out = torch.sigmoid(g_logits)

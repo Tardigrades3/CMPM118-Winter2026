@@ -6,6 +6,12 @@ from scipy import signal
 from scipy.io import loadmat
 from sklearn.utils.class_weight import compute_class_weight
 import torch
+import os as _os
+import matplotlib
+# Default to a non-interactive backend so importing this module during training
+# never tries to open a display (headless EC2). Respect an explicit MPLBACKEND.
+if not _os.environ.get("MPLBACKEND"):
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 def normalise(data, train_reps):
     """
@@ -171,7 +177,7 @@ def multi_preprocess(exercise_number, path):
     
     return x_train, y_train, x_test, y_test, class_weights_dict
 def visualize_preprocessing(raw, bp, notch, norm):
-    import matplotlib.pyplot as plt
+    import os
 
     plt.figure(figsize=(12,4))
     plt.plot(raw.iloc[:2000,0], label="raw")
@@ -179,7 +185,12 @@ def visualize_preprocessing(raw, bp, notch, norm):
     plt.plot(notch.iloc[:2000,0], label="notch")
     plt.legend()
     plt.title("Raw vs Filtered EMG")
-    plt.show()
+    plots_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results", "plots")
+    os.makedirs(plots_dir, exist_ok=True)
+    out = os.path.join(plots_dir, "preprocessing_raw_vs_filtered.png")
+    plt.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"Saved: {out}")
 
 class NinaProDataset(torch.utils.data.Dataset):
   def __init__(self, x, y):

@@ -341,7 +341,10 @@ def compute_fisher(model, task_loader, device):
     Computes the Fisher Information Matrix to determine weight importance.
     Called once at the very end of training on a specific subject.
     """
-    model.eval()
+    # NOTE: must be train() (not eval()) — the cuDNN LSTM backend raises
+    # "cudnn RNN backward can only be called in training mode" otherwise.
+    # HGRN has no dropout/BatchNorm, so train() == eval() numerically for it.
+    model.train()
     fisher_dict = {}
     optpar_dict = {}
     
@@ -383,7 +386,7 @@ def compute_fisher(model, task_loader, device):
         predicted_classes = logits.max(1)[1]
         
         loss = torch.nn.functional.nll_loss(log_likelihood, predicted_classes)
-        loss.backward(retain_graph=True)
+        loss.backward()
         
         # Accumulate the squared gradients
         for name, param in model.named_parameters():
