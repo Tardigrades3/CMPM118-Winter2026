@@ -1,7 +1,16 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from fla.ops.hgrn import chunk_hgrn 
+
+# GPU path uses the FLA/Triton chunked HGRN kernel. Fall back to a pure-PyTorch
+# timestep loop when FLA/Triton are unavailable (CPU / local dev) so the module
+# imports and runs everywhere; the recurrence is identical either way.
+try:
+    from fla.ops.hgrn import chunk_hgrn
+    _HAS_FLA = True
+except ImportError:
+    chunk_hgrn = None
+    _HAS_FLA = False
 
 class FastHGRNLayer(nn.Module):
     def __init__(self, d_model, layer_idx, num_layers):
@@ -37,18 +46,30 @@ class FastHGRNLayer(nn.Module):
         
         # 3. Combine the input gate and candidate
         x_recurrence = i * c
-        
-        # 4. The FLA kernel expects the forget gate in log-space
-        g = torch.log(f)
-        
-        # 5. THE KERNEL: Pass the 3D tensors directly (Batch, Time, Dimension)
-        h_out, final_state = chunk_hgrn(
-            x=x_recurrence, 
-            g=g, 
-            initial_state=state, 
-            output_final_state=True
-        )
-        
+
+        if _HAS_FLA and x.is_cuda:
+            # GPU path: FLA kernel expects the forget gate in log-space; runs the
+            # whole (B, T, D) linear recurrence in one chunked launch.
+            g = torch.log(f)
+            h_out, final_state = chunk_hgrn(
+                x=x_recurrence,
+                g=g,
+                initial_state=state,
+                output_final_state=True
+            )
+        else:
+            # CPU fallback: identical recurrence h_t = f_t * h_{t-1} + x_recurrence_t
+            B, T, D = x_recurrence.shape
+            if state is None:
+                state = torch.zeros(B, D, device=x.device, dtype=x.dtype)
+            outputs = []
+            h = state
+            for t in range(T):
+                h = f[:, t] * h + x_recurrence[:, t]
+                outputs.append(h.unsqueeze(1))
+            h_out = torch.cat(outputs, dim=1)
+            final_state = h
+
         # 6. Apply output gating
         g_out = torch.sigmoid(g_logits)
         out = g_out * h_out

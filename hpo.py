@@ -229,8 +229,15 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
                                             num_classes=num_classes)
 
         elif mode == 'ewc_stateful':
-            fisher_dict, optpar_dict = training_functions.compute_fisher(
+            # Online EWC: accumulate Fisher across tasks (matches train.py).
+            curr_fisher, curr_optpar = training_functions.compute_fisher(
                 model, train_loader, device)
+            if fisher_dict is None:
+                fisher_dict, optpar_dict = curr_fisher, curr_optpar
+            else:
+                for name in fisher_dict:
+                    fisher_dict[name] += curr_fisher[name]
+                    optpar_dict[name] = curr_optpar[name]
 
         _, acc, _ = evaluation_functions.evaluate(model, test_loader, criterion, device)
         imm_accs.append(acc)
@@ -248,9 +255,19 @@ def _cl_objective(trial, args, arch_params, device):
     cl_params    = _suggest_cl_params(trial, args.mode)
     d_model      = arch_params['d_model']
     num_layers   = arch_params['num_layers']
-    lr           = arch_params['lr']
-    weight_decay = arch_params['weight_decay']
-    batch_size   = arch_params.get('batch_size', 32)
+
+    if getattr(args, 'tune_lr', False):
+        # Co-tune the optimisation knobs WITH the CL-method params. The CIL/stateless
+        # arch HPO picked lr≈5e-4, but the best DIL replay run used lr=1e-3 — freezing
+        # lr here is exactly why the CIL-tuned params underperformed in DIL. Tuning lr
+        # (and batch size / weight decay) in-scenario lets the HPO rediscover that.
+        lr           = trial.suggest_float('lr', 1e-4, 5e-3, log=True)
+        batch_size   = trial.suggest_categorical('batch_size', [16, 24, 32])
+        weight_decay = trial.suggest_float('weight_decay', 1e-5, 1e-2, log=True)
+    else:
+        lr           = arch_params['lr']
+        weight_decay = arch_params['weight_decay']
+        batch_size   = arch_params.get('batch_size', 32)
 
     ModelClass = _ARCH_REGISTRY[args.arch]
     criterion  = nn.CrossEntropyLoss()
@@ -366,6 +383,10 @@ def main():
                       help="'cil': proxy is per-subject exercise stream; 'dil': proxy is cross-subject stream")
     p_cl.add_argument('--exercise', type=int, default=1,
                       help="Exercise number for DIL proxy (only used when --scenario dil)")
+    p_cl.add_argument('--tune-lr', dest='tune_lr', action='store_true',
+                      help="Co-tune lr/batch_size/weight_decay with the CL params "
+                           "(recommended for DIL — rediscovers lr~1e-3). The chosen "
+                           "values are written into the best-params JSON.")
     # Architecture params — load from phase-1 JSON or provide individually
     p_cl.add_argument('--arch_params',
                       help="Path to phase-1 best-params JSON (e.g. results/hpo_arch_hgrn_best.json)")

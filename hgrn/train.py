@@ -65,7 +65,20 @@ def main():
     parser.add_argument('--noise_std', type=float, default=0.01)
     # Herding
     parser.add_argument('--herding_capacity_per_class', type=int, default=20)
+    # Reproducibility
+    parser.add_argument('--seed', type=int, default=None,
+                        help="Random seed for model init + data shuffling (for seeded repeats).")
+    parser.add_argument('--results_dir', type=str, default='results',
+                        help="Directory for eval JSONs (use a separate dir to keep runs apart).")
     args = parser.parse_args()
+
+    if args.seed is not None:
+        import random
+        import numpy as np
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        torch.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
 
     is_stateless = args.mode in ['stateless', 'replay_stateless']
 
@@ -124,6 +137,7 @@ def main():
             "replay_weight": args.replay_weight,
             "noise_std": args.noise_std,
             "herding_capacity_per_class": args.herding_capacity_per_class,
+            "seed": args.seed,
         },
         "training_history": {},
         "immediate_performance": {},
@@ -212,8 +226,18 @@ def main():
                 herding_buffer.select_exemplars(model, train_loader, device, num_classes=total_classes)
 
             case 'ewc_stateful':
-                print("Computing Fisher Information Matrix...")
-                fisher_dict, optpar_dict = training_functions.compute_fisher(model, train_loader, device)
+                print("Computing Fisher Information Matrix (online / accumulated)...")
+                curr_fisher, curr_optpar = training_functions.compute_fisher(model, train_loader, device)
+                # Online EWC: accumulate (sum) Fisher across tasks, anchor to the
+                # latest weights. This makes the penalty grow with the number of
+                # tasks — the formulation that actually helps in DIL (many subjects),
+                # unlike single-task overwrite which gives ~zero DIL lift.
+                if fisher_dict is None:
+                    fisher_dict, optpar_dict = curr_fisher, curr_optpar
+                else:
+                    for name in fisher_dict:
+                        fisher_dict[name] += curr_fisher[name]
+                        optpar_dict[name] = curr_optpar[name]
 
         # Immediate evaluation
         imm_loss, imm_acc, imm_per_class = evaluation_functions.evaluate(
@@ -260,7 +284,8 @@ def main():
 
     subject_id = args.subject if args.scenario == 'cil' else None
     saved_path = evaluation_functions.save_evaluation_results(
-        eval_results, f"{args.scenario}_{args.mode}", args.exercise, subject_id=subject_id)
+        eval_results, f"{args.scenario}_{args.mode}", args.exercise,
+        subject_id=subject_id, results_dir=args.results_dir, seed=args.seed)
     print(f"\nEvaluation saved to: {saved_path}")
 
 
