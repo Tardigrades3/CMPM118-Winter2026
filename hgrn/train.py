@@ -70,6 +70,10 @@ def main():
                         help="Random seed for model init + data shuffling (for seeded repeats).")
     parser.add_argument('--results_dir', type=str, default='results',
                         help="Directory for eval JSONs (use a separate dir to keep runs apart).")
+    parser.add_argument('--shuffle', type=str, default='auto', choices=['auto', 'true', 'false'],
+                        help="Train-loader shuffle override. 'auto' = shuffle iff stateless "
+                             "(default). Use 'true' to e.g. run a stateful mode WITH shuffling "
+                             "to isolate ordering from state-carrying.")
     args = parser.parse_args()
 
     if args.seed is not None:
@@ -81,6 +85,13 @@ def main():
         torch.cuda.manual_seed_all(args.seed)
 
     is_stateless = args.mode in ['stateless', 'replay_stateless']
+    # Resolve the train-loader shuffle: 'auto' keeps the original behaviour
+    # (shuffle iff stateless); 'true'/'false' force it for isolation experiments.
+    if args.shuffle == 'auto':
+        shuffle_train = is_stateless
+    else:
+        shuffle_train = (args.shuffle == 'true')
+    print(f"Train-loader shuffle = {shuffle_train}")
 
     print(f"Initializing {args.arch.upper()} | {args.mode.upper()} | {args.scenario.upper()} ...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -90,7 +101,7 @@ def main():
         task_streams, total_classes = ss_preprocessing.build_ss_task_streams(
             exercise_number=args.exercise,
             path=args.data_path,
-            shuffle=is_stateless,
+            shuffle=shuffle_train,
             batch_size=args.batch_size
         )
         print(f"Detected {total_classes} total classes for Exercise {args.exercise}.")
@@ -101,7 +112,7 @@ def main():
             subject_id=args.subject,
             path=args.data_path,
             batch_size=args.batch_size,
-            shuffle=is_stateless
+            shuffle=shuffle_train
         )
         print(f"Detected {total_classes} total classes across exercises.")
 
