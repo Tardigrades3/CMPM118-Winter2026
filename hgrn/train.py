@@ -37,7 +37,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train the HGRN Model on NinaPro Data")
     parser.add_argument('--mode', type=str, required=True,
                         choices=['stateless', 'stateful', 'replay_stateless', 'replay_stateful',
-                                 'ewc_stateful', 'herding_stateful'],
+                                 'ewc_stateless', 'ewc_stateful', 'herding_stateful'],
                         help="Continual learning paradigm.")
     parser.add_argument('--scenario', type=str, required=True, choices=['dil', 'cil'],
                         help="'dil': train across subjects. 'cil': train across exercises for one subject.")
@@ -84,7 +84,7 @@ def main():
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
 
-    is_stateless = args.mode in ['stateless', 'replay_stateless']
+    is_stateless = args.mode in ['stateless', 'replay_stateless', 'ewc_stateless']
     # Resolve the train-loader shuffle: 'auto' keeps the original behaviour
     # (shuffle iff stateless); 'true'/'false' force it for isolation experiments.
     if args.shuffle == 'auto':
@@ -201,6 +201,13 @@ def main():
                         replay_weight=args.replay_weight,
                         noise_std=args.noise_std)
 
+                case 'ewc_stateless':
+                    epoch_loss, epoch_acc = training_functions.train_ewc_stateless(
+                        model, train_loader, optimizer, criterion, device,
+                        fisher_dict=fisher_dict,
+                        optpar_dict=optpar_dict,
+                        ewc_lambda=args.ewc_lambda)
+
                 case 'ewc_stateful':
                     epoch_loss, epoch_acc = training_functions.train_ewc_stateful(
                         model, train_loader, optimizer, criterion, device,
@@ -235,6 +242,17 @@ def main():
             case 'herding_stateful':
                 print("Running herding to select prototypical exemplars...")
                 herding_buffer.select_exemplars(model, train_loader, device, num_classes=total_classes)
+
+            case 'ewc_stateless':
+                print("Computing Fisher Information Matrix (stateless / online / accumulated)...")
+                curr_fisher, curr_optpar = training_functions.compute_fisher(
+                    model, train_loader, device, stateless=True)
+                if fisher_dict is None:
+                    fisher_dict, optpar_dict = curr_fisher, curr_optpar
+                else:
+                    for name in fisher_dict:
+                        fisher_dict[name] += curr_fisher[name]
+                        optpar_dict[name] = curr_optpar[name]
 
             case 'ewc_stateful':
                 print("Computing Fisher Information Matrix (online / accumulated)...")

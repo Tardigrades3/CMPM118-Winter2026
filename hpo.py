@@ -133,9 +133,10 @@ def _arch_objective(trial, args, device):
 # ── Phase 2: CL method HPO (CIL proxy) ───────────────────────────────────────
 
 _CL_SEARCH_SPACES = {
-    'ewc_stateful': ['ewc_lambda'],
-    'replay_stateful':  ['replay_weight', 'capacity', 'noise_std', 'replay_batch_size'],
+    'ewc_stateless': ['ewc_lambda'],
+    'ewc_stateful':  ['ewc_lambda'],
     'replay_stateless': ['replay_weight', 'capacity', 'noise_std', 'replay_batch_size'],
+    'replay_stateful':  ['replay_weight', 'capacity', 'noise_std', 'replay_batch_size'],
     'herding_stateful': ['capacity_per_class', 'replay_batch_size'],
 }
 
@@ -192,17 +193,34 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
                 param.requires_grad = False
 
         for _ in range(epochs_per_task):
-            if mode == 'stateful':
+            if mode == 'stateless':
+                training_functions.train_naive_stateless(
+                    model, train_loader, optimizer, criterion, device)
+
+            elif mode == 'stateful':
                 training_functions.train_naive_stateful(
                     model, train_loader, optimizer, criterion, device)
 
-            elif mode in ('replay_stateful', 'replay_stateless'):
+            elif mode == 'replay_stateless':
+                training_functions.train_replay_stateless(
+                    model, train_loader, optimizer, criterion, device,
+                    memory_buffer=memory_buffer,
+                    replay_batch_size=cl_params.get('replay_batch_size', 16))
+
+            elif mode == 'replay_stateful':
                 training_functions.train_replay_stateful(
                     model, train_loader, optimizer, criterion, device,
                     memory_buffer=memory_buffer,
                     replay_batch_size=cl_params.get('replay_batch_size', 16),
                     replay_weight=cl_params.get('replay_weight', 0.5),
                     noise_std=cl_params.get('noise_std', 0.01))
+
+            elif mode == 'ewc_stateless':
+                training_functions.train_ewc_stateless(
+                    model, train_loader, optimizer, criterion, device,
+                    fisher_dict=fisher_dict,
+                    optpar_dict=optpar_dict,
+                    ewc_lambda=cl_params.get('ewc_lambda', 2000))
 
             elif mode == 'ewc_stateful':
                 training_functions.train_ewc_stateful(
@@ -227,6 +245,16 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
             num_classes = model.head.out_features
             herding_buffer.select_exemplars(model, train_loader, device,
                                             num_classes=num_classes)
+
+        elif mode == 'ewc_stateless':
+            curr_fisher, curr_optpar = training_functions.compute_fisher(
+                model, train_loader, device, stateless=True)
+            if fisher_dict is None:
+                fisher_dict, optpar_dict = curr_fisher, curr_optpar
+            else:
+                for name in fisher_dict:
+                    fisher_dict[name] += curr_fisher[name]
+                    optpar_dict[name] = curr_optpar[name]
 
         elif mode == 'ewc_stateful':
             # Online EWC: accumulate Fisher across tasks (matches train.py).
@@ -271,7 +299,7 @@ def _cl_objective(trial, args, arch_params, device):
 
     ModelClass = _ARCH_REGISTRY[args.arch]
     criterion  = nn.CrossEntropyLoss()
-    shuffle    = 'stateless' in args.mode
+    shuffle    = args.mode in ('stateless', 'replay_stateless', 'ewc_stateless')
 
     if args.scenario == 'dil':
         # Single DIL task stream: proxy subjects run sequentially (one model, all subjects)
