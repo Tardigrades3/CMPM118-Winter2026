@@ -1,0 +1,244 @@
+╔════════════════════════════════════════════════════════════════╗
+║  DIL recovery — started 20260625_205742
+║  data=./NinaProData  seeds=[1 2 3]  proxy=[27 4 17 23 3 24]  trials=40
+╚════════════════════════════════════════════════════════════════╝
+
+######## HPO (DIL, --tune-lr): replay_stateful ########
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+Architecture params (from CLI):
+  d_model: 128
+  num_layers: 4
+  lr: 0.0001
+  weight_decay: 0.01
+  batch_size: 32
+
+Phase 2 — CL Method HPO (replay_stateful, DIL proxy)
+  scenario    : dil
+  subjects    : [27, 4, 17, 23, 3, 24]
+  exercise    : 1
+  epochs/task : 5
+  trials      : 40  (+ 30 already done)
+  storage     : sqlite:///results/hpo_cl_replay_stateful_hgrn_dil.db
+  0%|          | 0/40 [00:00<?, ?it/s]Best trial: 14. Best value: 0.737811:   0%|          | 0/40 [00:21<?, ?it/s]Best trial: 14. Best value: 0.737811:   2%|▎         | 1/40 [00:21<13:44, 21.14s/it]Best trial: 14. Best value: 0.737811:   2%|▎         | 1/40 [00:54<13:44, 21.14s/it]Best trial: 14. Best value: 0.737811:   5%|▌         | 2/40 [00:54<17:53, 28.26s/it]Best trial: 14. Best value: 0.737811:   5%|▌         | 2/40 [01:20<17:53, 28.26s/it]Best trial: 14. Best value: 0.737811:   8%|▊         | 3/40 [01:20<16:49, 27.29s/it]Best trial: 14. Best value: 0.737811:   8%|▊         | 3/40 [01:46<16:49, 27.29s/it]Best trial: 14. Best value: 0.737811:  10%|█         | 4/40 [01:46<16:08, 26.89s/it]Best trial: 34. Best value: 0.746467:  10%|█         | 4/40 [02:32<16:08, 26.89s/it]Best trial: 34. Best value: 0.746467:  12%|█▎        | 5/40 [02:32<19:37, 33.63s/it]Best trial: 34. Best value: 0.746467:  12%|█▎        | 5/40 [03:17<19:37, 33.63s/it]Best trial: 34. Best value: 0.746467:  15%|█▌        | 6/40 [03:17<21:12, 37.41s/it]Best trial: 34. Best value: 0.746467:  15%|█▌        | 6/40 [04:01<21:12, 37.41s/it]Best trial: 34. Best value: 0.746467:  18%|█▊        | 7/40 [04:01<21:52, 39.77s/it]Best trial: 34. Best value: 0.746467:  18%|█▊        | 7/40 [04:36<21:52, 39.77s/it]Best trial: 34. Best value: 0.746467:  20%|██        | 8/40 [04:36<20:17, 38.05s/it]Best trial: 34. Best value: 0.746467:  20%|██        | 8/40 [05:09<20:17, 38.05s/it]Best trial: 34. Best value: 0.746467:  22%|██▎       | 9/40 [05:09<18:57, 36.69s/it]Best trial: 34. Best value: 0.746467:  22%|██▎       | 9/40 [05:43<18:57, 36.69s/it]Best trial: 34. Best value: 0.746467:  25%|██▌       | 10/40 [05:43<17:48, 35.63s/it]Best trial: 34. Best value: 0.746467:  25%|██▌       | 10/40 [06:16<17:48, 35.63s/it]Best trial: 34. Best value: 0.746467:  28%|██▊       | 11/40 [06:16<16:52, 34.92s/it]Best trial: 34. Best value: 0.746467:  28%|██▊       | 11/40 [06:49<16:52, 34.92s/it]Best trial: 34. Best value: 0.746467:  30%|███       | 12/40 [06:49<16:05, 34.47s/it]Best trial: 34. Best value: 0.746467:  30%|███       | 12/40 [07:23<16:05, 34.47s/it]Best trial: 34. Best value: 0.746467:  32%|███▎      | 13/40 [07:23<15:21, 34.11s/it]Best trial: 34. Best value: 0.746467:  32%|███▎      | 13/40 [07:56<15:21, 34.11s/it]Best trial: 34. Best value: 0.746467:  35%|███▌      | 14/40 [07:56<14:40, 33.87s/it]Best trial: 34. Best value: 0.746467:  35%|███▌      | 14/40 [08:29<14:40, 33.87s/it]Best trial: 34. Best value: 0.746467:  38%|███▊      | 15/40 [08:29<14:02, 33.69s/it]Best trial: 34. Best value: 0.746467:  38%|███▊      | 15/40 [09:02<14:02, 33.69s/it]Best trial: 34. Best value: 0.746467:  40%|████      | 16/40 [09:02<13:25, 33.57s/it]Best trial: 34. Best value: 0.746467:  40%|████      | 16/40 [09:36<13:25, 33.57s/it]Best trial: 34. Best value: 0.746467:  42%|████▎     | 17/40 [09:36<12:50, 33.48s/it]Best trial: 34. Best value: 0.746467:  42%|████▎     | 17/40 [10:09<12:50, 33.48s/it]Best trial: 34. Best value: 0.746467:  45%|████▌     | 18/40 [10:09<12:15, 33.42s/it]Best trial: 34. Best value: 0.746467:  45%|████▌     | 18/40 [10:34<12:15, 33.42s/it]Best trial: 34. Best value: 0.746467:  48%|████▊     | 19/40 [10:34<10:47, 30.81s/it]Best trial: 34. Best value: 0.746467:  48%|████▊     | 19/40 [11:07<10:47, 30.81s/it]Best trial: 34. Best value: 0.746467:  50%|█████     | 20/40 [11:07<10:31, 31.58s/it]Best trial: 34. Best value: 0.746467:  50%|█████     | 20/40 [11:40<10:31, 31.58s/it]Best trial: 34. Best value: 0.746467:  52%|█████▎    | 21/40 [11:40<10:09, 32.09s/it]Best trial: 34. Best value: 0.746467:  52%|█████▎    | 21/40 [12:14<10:09, 32.09s/it]Best trial: 34. Best value: 0.746467:  55%|█████▌    | 22/40 [12:14<09:44, 32.46s/it]Best trial: 34. Best value: 0.746467:  55%|█████▌    | 22/40 [12:47<09:44, 32.46s/it]Best trial: 34. Best value: 0.746467:  57%|█████▊    | 23/40 [12:47<09:16, 32.76s/it]Best trial: 34. Best value: 0.746467:  57%|█████▊    | 23/40 [13:21<09:16, 32.76s/it]Best trial: 34. Best value: 0.746467:  60%|██████    | 24/40 [13:21<08:46, 32.92s/it]Best trial: 34. Best value: 0.746467:  60%|██████    | 24/40 [13:55<08:46, 32.92s/it]Best trial: 34. Best value: 0.746467:  62%|██████▎   | 25/40 [13:55<08:20, 33.34s/it]Best trial: 34. Best value: 0.746467:  62%|██████▎   | 25/40 [14:32<08:20, 33.34s/it]Best trial: 34. Best value: 0.746467:  65%|██████▌   | 26/40 [14:32<08:03, 34.52s/it]Best trial: 34. Best value: 0.746467:  65%|██████▌   | 26/40 [15:21<08:03, 34.52s/it]Best trial: 34. Best value: 0.746467:  68%|██████▊   | 27/40 [15:21<08:24, 38.78s/it]Best trial: 34. Best value: 0.746467:  68%|██████▊   | 27/40 [15:50<08:24, 38.78s/it]Best trial: 34. Best value: 0.746467:  70%|███████   | 28/40 [15:50<07:11, 35.99s/it]Best trial: 34. Best value: 0.746467:  70%|███████   | 28/40 [16:23<07:11, 35.99s/it]Best trial: 34. Best value: 0.746467:  72%|███████▎  | 29/40 [16:23<06:23, 34.89s/it]Best trial: 34. Best value: 0.746467:  72%|███████▎  | 29/40 [16:57<06:23, 34.89s/it]Best trial: 34. Best value: 0.746467:  75%|███████▌  | 30/40 [16:57<05:47, 34.77s/it]Best trial: 34. Best value: 0.746467:  75%|███████▌  | 30/40 [17:31<05:47, 34.77s/it]Best trial: 34. Best value: 0.746467:  78%|███████▊  | 31/40 [17:31<05:09, 34.36s/it]Best trial: 34. Best value: 0.746467:  78%|███████▊  | 31/40 [18:04<05:09, 34.36s/it]Best trial: 34. Best value: 0.746467:  80%|████████  | 32/40 [18:04<04:32, 34.04s/it]Best trial: 34. Best value: 0.746467:  80%|████████  | 32/40 [18:37<04:32, 34.04s/it]Best trial: 34. Best value: 0.746467:  82%|████████▎ | 33/40 [18:37<03:56, 33.83s/it]Best trial: 34. Best value: 0.746467:  82%|████████▎ | 33/40 [18:58<03:56, 33.83s/it]Best trial: 34. Best value: 0.746467:  85%|████████▌ | 34/40 [18:58<02:59, 29.95s/it]Best trial: 34. Best value: 0.746467:  85%|████████▌ | 34/40 [19:31<02:59, 29.95s/it]Best trial: 34. Best value: 0.746467:  88%|████████▊ | 35/40 [19:31<02:34, 30.96s/it]Best trial: 34. Best value: 0.746467:  88%|████████▊ | 35/40 [20:05<02:34, 30.96s/it]Best trial: 34. Best value: 0.746467:  90%|█████████ | 36/40 [20:05<02:06, 31.67s/it]Best trial: 34. Best value: 0.746467:  90%|█████████ | 36/40 [20:38<02:06, 31.67s/it]Best trial: 34. Best value: 0.746467:  92%|█████████▎| 37/40 [20:38<01:36, 32.17s/it]Best trial: 34. Best value: 0.746467:  92%|█████████▎| 37/40 [21:12<01:36, 32.17s/it]Best trial: 34. Best value: 0.746467:  95%|█████████▌| 38/40 [21:12<01:05, 32.57s/it]Best trial: 34. Best value: 0.746467:  95%|█████████▌| 38/40 [21:36<01:05, 32.57s/it]Best trial: 34. Best value: 0.746467:  98%|█████████▊| 39/40 [21:37<00:30, 30.29s/it]Best trial: 34. Best value: 0.746467:  98%|█████████▊| 39/40 [21:57<00:30, 30.29s/it]Best trial: 34. Best value: 0.746467: 100%|██████████| 40/40 [21:57<00:00, 27.25s/it]Best trial: 34. Best value: 0.746467: 100%|██████████| 40/40 [21:57<00:00, 32.93s/it]
+
+═══════════════════════════════════════════════════════
+Best trial : #34   objective = 0.7465
+Best params:
+  replay_weight            0.412736
+  capacity                 5000
+  noise_std                0.0997068
+  replay_batch_size        8
+  lr                       0.00084268
+  batch_size               16
+  weight_decay             0.000309925
+
+Saved → results/hpo_cl_replay_stateful_hgrn_dil_best.json
+Dashboard: optuna-dashboard sqlite:///results/hpo_cl_replay_stateful_hgrn_dil.db
+
+######## HPO (DIL, --tune-lr): ewc_stateful ########
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+Architecture params (from CLI):
+  d_model: 128
+  num_layers: 4
+  lr: 0.0001
+  weight_decay: 0.01
+  batch_size: 32
+
+Phase 2 — CL Method HPO (ewc_stateful, DIL proxy)
+  scenario    : dil
+  subjects    : [27, 4, 17, 23, 3, 24]
+  exercise    : 1
+  epochs/task : 5
+  trials      : 40  (+ 60 already done)
+  storage     : sqlite:///results/hpo_cl_ewc_stateful_hgrn_dil.db
+  0%|          | 0/40 [00:00<?, ?it/s]Best trial: 0. Best value: 0.735183:   0%|          | 0/40 [00:23<?, ?it/s]Best trial: 0. Best value: 0.735183:   2%|▎         | 1/40 [00:23<15:03, 23.16s/it]Best trial: 0. Best value: 0.735183:   2%|▎         | 1/40 [01:00<15:03, 23.16s/it]Best trial: 0. Best value: 0.735183:   5%|▌         | 2/40 [01:00<19:59, 31.57s/it]Best trial: 0. Best value: 0.735183:   5%|▌         | 2/40 [01:28<19:59, 31.57s/it]Best trial: 0. Best value: 0.735183:   8%|▊         | 3/40 [01:28<18:17, 29.67s/it]Best trial: 63. Best value: 0.746467:   8%|▊         | 3/40 [02:05<18:17, 29.67s/it]Best trial: 63. Best value: 0.746467:  10%|█         | 4/40 [02:05<19:37, 32.71s/it]Best trial: 63. Best value: 0.746467:  10%|█         | 4/40 [02:42<19:37, 32.71s/it]Best trial: 63. Best value: 0.746467:  12%|█▎        | 5/40 [02:42<20:03, 34.38s/it]Best trial: 63. Best value: 0.746467:  12%|█▎        | 5/40 [03:20<20:03, 34.38s/it]Best trial: 63. Best value: 0.746467:  15%|█▌        | 6/40 [03:20<20:03, 35.39s/it]Best trial: 63. Best value: 0.746467:  15%|█▌        | 6/40 [03:57<20:03, 35.39s/it]Best trial: 63. Best value: 0.746467:  18%|█▊        | 7/40 [03:57<19:49, 36.03s/it]Best trial: 63. Best value: 0.746467:  18%|█▊        | 7/40 [04:34<19:49, 36.03s/it]Best trial: 63. Best value: 0.746467:  20%|██        | 8/40 [04:34<19:26, 36.45s/it]Best trial: 63. Best value: 0.746467:  20%|██        | 8/40 [05:12<19:26, 36.45s/it]Best trial: 63. Best value: 0.746467:  22%|██▎       | 9/40 [05:12<18:59, 36.75s/it]Best trial: 63. Best value: 0.746467:  22%|██▎       | 9/40 [05:49<18:59, 36.75s/it]Best trial: 63. Best value: 0.746467:  25%|██▌       | 10/40 [05:49<18:28, 36.95s/it]Best trial: 63. Best value: 0.746467:  25%|██▌       | 10/40 [06:26<18:28, 36.95s/it]Best trial: 63. Best value: 0.746467:  28%|██▊       | 11/40 [06:26<17:55, 37.07s/it]Best trial: 63. Best value: 0.746467:  28%|██▊       | 11/40 [07:04<17:55, 37.07s/it]Best trial: 63. Best value: 0.746467:  30%|███       | 12/40 [07:04<17:20, 37.17s/it]Best trial: 63. Best value: 0.746467:  30%|███       | 12/40 [07:41<17:20, 37.17s/it]Best trial: 63. Best value: 0.746467:  32%|███▎      | 13/40 [07:41<16:45, 37.24s/it]Best trial: 63. Best value: 0.746467:  32%|███▎      | 13/40 [08:19<16:45, 37.24s/it]Best trial: 63. Best value: 0.746467:  35%|███▌      | 14/40 [08:19<16:09, 37.29s/it]Best trial: 63. Best value: 0.746467:  35%|███▌      | 14/40 [08:56<16:09, 37.29s/it]Best trial: 63. Best value: 0.746467:  38%|███▊      | 15/40 [08:56<15:32, 37.31s/it]Best trial: 63. Best value: 0.746467:  38%|███▊      | 15/40 [09:33<15:32, 37.31s/it]Best trial: 63. Best value: 0.746467:  40%|████      | 16/40 [09:33<14:55, 37.33s/it]Best trial: 63. Best value: 0.746467:  40%|████      | 16/40 [10:11<14:55, 37.33s/it]Best trial: 63. Best value: 0.746467:  42%|████▎     | 17/40 [10:11<14:18, 37.34s/it]Best trial: 63. Best value: 0.746467:  42%|████▎     | 17/40 [10:48<14:18, 37.34s/it]Best trial: 63. Best value: 0.746467:  45%|████▌     | 18/40 [10:48<13:41, 37.36s/it]Best trial: 63. Best value: 0.746467:  45%|████▌     | 18/40 [11:25<13:41, 37.36s/it]Best trial: 63. Best value: 0.746467:  48%|████▊     | 19/40 [11:25<13:04, 37.36s/it]Best trial: 63. Best value: 0.746467:  48%|████▊     | 19/40 [12:03<13:04, 37.36s/it]Best trial: 63. Best value: 0.746467:  50%|█████     | 20/40 [12:03<12:27, 37.36s/it]Best trial: 63. Best value: 0.746467:  50%|█████     | 20/40 [12:40<12:27, 37.36s/it]Best trial: 63. Best value: 0.746467:  52%|█████▎    | 21/40 [12:40<11:50, 37.39s/it]Best trial: 63. Best value: 0.746467:  52%|█████▎    | 21/40 [13:18<11:50, 37.39s/it]Best trial: 63. Best value: 0.746467:  55%|█████▌    | 22/40 [13:18<11:13, 37.42s/it]Best trial: 63. Best value: 0.746467:  55%|█████▌    | 22/40 [13:55<11:13, 37.42s/it]Best trial: 63. Best value: 0.746467:  57%|█████▊    | 23/40 [13:55<10:36, 37.42s/it]Best trial: 63. Best value: 0.746467:  57%|█████▊    | 23/40 [14:33<10:36, 37.42s/it]Best trial: 63. Best value: 0.746467:  60%|██████    | 24/40 [14:33<09:58, 37.41s/it]Best trial: 63. Best value: 0.746467:  60%|██████    | 24/40 [15:10<09:58, 37.41s/it]Best trial: 63. Best value: 0.746467:  62%|██████▎   | 25/40 [15:10<09:21, 37.41s/it]Best trial: 63. Best value: 0.746467:  62%|██████▎   | 25/40 [15:47<09:21, 37.41s/it]Best trial: 63. Best value: 0.746467:  65%|██████▌   | 26/40 [15:47<08:43, 37.41s/it]Best trial: 63. Best value: 0.746467:  65%|██████▌   | 26/40 [16:25<08:43, 37.41s/it]Best trial: 63. Best value: 0.746467:  68%|██████▊   | 27/40 [16:25<08:06, 37.40s/it]Best trial: 63. Best value: 0.746467:  68%|██████▊   | 27/40 [17:02<08:06, 37.40s/it]Best trial: 63. Best value: 0.746467:  70%|███████   | 28/40 [17:02<07:28, 37.41s/it]Best trial: 63. Best value: 0.746467:  70%|███████   | 28/40 [17:30<07:28, 37.41s/it]Best trial: 63. Best value: 0.746467:  72%|███████▎  | 29/40 [17:30<06:18, 34.40s/it]Best trial: 63. Best value: 0.746467:  72%|███████▎  | 29/40 [17:52<06:18, 34.40s/it]Best trial: 63. Best value: 0.746467:  75%|███████▌  | 30/40 [17:52<05:06, 30.68s/it]Best trial: 63. Best value: 0.746467:  75%|███████▌  | 30/40 [18:29<05:06, 30.68s/it]Best trial: 63. Best value: 0.746467:  78%|███████▊  | 31/40 [18:29<04:54, 32.69s/it]Best trial: 63. Best value: 0.746467:  78%|███████▊  | 31/40 [19:06<04:54, 32.69s/it]Best trial: 63. Best value: 0.746467:  80%|████████  | 32/40 [19:06<04:32, 34.09s/it]Best trial: 63. Best value: 0.746467:  80%|████████  | 32/40 [19:44<04:32, 34.09s/it]Best trial: 63. Best value: 0.746467:  82%|████████▎ | 33/40 [19:44<04:05, 35.06s/it]Best trial: 63. Best value: 0.746467:  82%|████████▎ | 33/40 [20:21<04:05, 35.06s/it]Best trial: 63. Best value: 0.746467:  85%|████████▌ | 34/40 [20:21<03:34, 35.75s/it]Best trial: 63. Best value: 0.746467:  85%|████████▌ | 34/40 [20:58<03:34, 35.75s/it]Best trial: 63. Best value: 0.746467:  88%|████████▊ | 35/40 [20:58<03:01, 36.23s/it]Best trial: 63. Best value: 0.746467:  88%|████████▊ | 35/40 [21:36<03:01, 36.23s/it]Best trial: 63. Best value: 0.746467:  90%|█████████ | 36/40 [21:36<02:26, 36.55s/it]Best trial: 63. Best value: 0.746467:  90%|█████████ | 36/40 [21:58<02:26, 36.55s/it]Best trial: 63. Best value: 0.746467:  92%|█████████▎| 37/40 [21:58<01:36, 32.18s/it]Best trial: 63. Best value: 0.746467:  92%|█████████▎| 37/40 [22:35<01:36, 32.18s/it]Best trial: 63. Best value: 0.746467:  95%|█████████▌| 38/40 [22:35<01:07, 33.72s/it]Best trial: 63. Best value: 0.746467:  95%|█████████▌| 38/40 [23:12<01:07, 33.72s/it]Best trial: 63. Best value: 0.746467:  98%|█████████▊| 39/40 [23:12<00:34, 34.79s/it]Best trial: 63. Best value: 0.746467:  98%|█████████▊| 39/40 [23:50<00:34, 34.79s/it]Best trial: 63. Best value: 0.746467: 100%|██████████| 40/40 [23:50<00:00, 35.54s/it]Best trial: 63. Best value: 0.746467: 100%|██████████| 40/40 [23:50<00:00, 35.75s/it]
+
+═══════════════════════════════════════════════════════
+Best trial : #63   objective = 0.7465
+Best params:
+  ewc_lambda               2851.68
+  lr                       0.000312109
+  batch_size               16
+  weight_decay             1.28367e-05
+
+Saved → results/hpo_cl_ewc_stateful_hgrn_dil_best.json
+Dashboard: optuna-dashboard sqlite:///results/hpo_cl_ewc_stateful_hgrn_dil.db
+
+Discovered DIL configs:
+  replay_stateful → {'replay_weight': 0.4127363569331114, 'capacity': 5000, 'noise_std': 0.09970682275036447, 'replay_batch_size': 8, 'lr': 0.0008426799418226363, 'batch_size': 16, 'weight_decay': 0.0003099246938221804}
+  ewc_stateful → {'ewc_lambda': 2851.6756352063826, 'lr': 0.00031210861498120616, 'batch_size': 16, 'weight_decay': 1.2836682634703806e-05}
+
+######## Full DIL sweep (27 subjects) × seeds ########
+-- seed 1 | stateful (naive baseline) --
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+Train-loader shuffle = False
+Initializing HGRN | STATEFUL | DIL ...
+Building Domain-Incremental stream (subject-to-subject)...
+Detected 13 total classes for Exercise 1.
+
+=== Starting Task: subject_1 ===
+Epoch 1/5 | Loss: 2.8102 | Acc: 0.3623
+Epoch 2/5 | Loss: 2.6727 | Acc: 0.2396
+Epoch 3/5 | Loss: 3.1688 | Acc: 0.1007
+Epoch 4/5 | Loss: 2.5718 | Acc: 0.4062
+Epoch 5/5 | Loss: 2.4998 | Acc: 0.4062
+Immediate eval on subject_1 -> Acc: 0.7896
+Forward eval on subject_2 (zero-shot) -> Acc: 0.7686
+
+=== Starting Task: subject_2 ===
+Epoch 1/5 | Loss: 2.5376 | Acc: 0.3376
+Epoch 2/5 | Loss: 2.5033 | Acc: 0.3376
+Epoch 3/5 | Loss: 2.4951 | Acc: 0.3376
+Epoch 4/5 | Loss: 2.4842 | Acc: 0.3376
+Epoch 5/5 | Loss: 2.4741 | Acc: 0.3376
+Immediate eval on subject_2 -> Acc: 0.7686
+Forward eval on subject_3 (zero-shot) -> Acc: 0.7886
+
+=== Starting Task: subject_3 ===
+Epoch 1/5 | Loss: 2.4101 | Acc: 0.3933
+Epoch 2/5 | Loss: 2.4137 | Acc: 0.3933
+Epoch 3/5 | Loss: 2.4121 | Acc: 0.3933
+Epoch 4/5 | Loss: 2.4099 | Acc: 0.3933
+Epoch 5/5 | Loss: 2.4063 | Acc: 0.3933
+Immediate eval on subject_3 -> Acc: 0.7886
+Forward eval on subject_4 (zero-shot) -> Acc: 0.7411
+
+=== Starting Task: subject_4 ===
+Epoch 1/5 | Loss: 2.5736 | Acc: 0.2657
+Epoch 2/5 | Loss: 2.5219 | Acc: 0.2657
+Epoch 3/5 | Loss: 2.5199 | Acc: 0.2657
+Epoch 4/5 | Loss: 2.5163 | Acc: 0.2657
+Epoch 5/5 | Loss: 2.5123 | Acc: 0.2657
+Immediate eval on subject_4 -> Acc: 0.7411
+Forward eval on subject_5 (zero-shot) -> Acc: 0.6638
+
+=== Starting Task: subject_5 ===
+Epoch 1/5 | Loss: 2.6120 | Acc: 0.1715
+Epoch 2/5 | Loss: 2.5944 | Acc: 0.1715
+Epoch 3/5 | Loss: 2.5887 | Acc: 0.1715
+Epoch 4/5 | Loss: 2.5842 | Acc: 0.1715
+Epoch 5/5 | Loss: 2.5807 | Acc: 0.1715
+Immediate eval on subject_5 -> Acc: 0.6638
+Forward eval on subject_6 (zero-shot) -> Acc: 0.7124
+
+=== Starting Task: subject_6 ===
+Epoch 1/5 | Loss: 2.5490 | Acc: 0.2816
+Epoch 2/5 | Loss: 2.5039 | Acc: 0.2816
+Epoch 3/5 | Loss: 2.4835 | Acc: 0.2816
+Epoch 4/5 | Loss: 2.4744 | Acc: 0.2816
+Epoch 5/5 | Loss: 2.4686 | Acc: 0.2816
+Immediate eval on subject_6 -> Acc: 0.7124
+Forward eval on subject_7 (zero-shot) -> Acc: 0.7576
+
+=== Starting Task: subject_7 ===
+Epoch 1/5 | Loss: 2.4294 | Acc: 0.3213
+Epoch 2/5 | Loss: 2.4183 | Acc: 0.3213
+Epoch 3/5 | Loss: 2.4109 | Acc: 0.3213
+Epoch 4/5 | Loss: 2.4069 | Acc: 0.3213
+Epoch 5/5 | Loss: 2.4039 | Acc: 0.3213
+Immediate eval on subject_7 -> Acc: 0.7576
+Forward eval on subject_8 (zero-shot) -> Acc: 0.8118
+
+=== Starting Task: subject_8 ===
+Epoch 1/5 | Loss: 2.3067 | Acc: 0.3975
+Epoch 2/5 | Loss: 2.2963 | Acc: 0.3975
+Epoch 3/5 | Loss: 2.2957 | Acc: 0.3975
+Epoch 4/5 | Loss: 2.2970 | Acc: 0.3975
+Epoch 5/5 | Loss: 2.2928 | Acc: 0.3975
+Immediate eval on subject_8 -> Acc: 0.8118
+Forward eval on subject_9 (zero-shot) -> Acc: 0.7448
+
+=== Starting Task: subject_9 ===
+Epoch 1/5 | Loss: 2.4605 | Acc: 0.3001
+Epoch 2/5 | Loss: 2.4308 | Acc: 0.3001
+Epoch 3/5 | Loss: 2.4260 | Acc: 0.3001
+Epoch 4/5 | Loss: 2.4252 | Acc: 0.3001
+Epoch 5/5 | Loss: 2.4236 | Acc: 0.3001
+Immediate eval on subject_9 -> Acc: 0.7448
+Forward eval on subject_10 (zero-shot) -> Acc: 0.7507
+
+=== Starting Task: subject_10 ===
+Epoch 1/5 | Loss: 2.4352 | Acc: 0.2947
+Epoch 2/5 | Loss: 2.4344 | Acc: 0.2947
+Epoch 3/5 | Loss: 2.4314 | Acc: 0.2947
+Epoch 4/5 | Loss: 2.4297 | Acc: 0.2947
+Epoch 5/5 | Loss: 2.4287 | Acc: 0.2947
+Immediate eval on subject_10 -> Acc: 0.7507
+Forward eval on subject_11 (zero-shot) -> Acc: 0.6797
+
+=== Starting Task: subject_11 ===
+Epoch 1/5 | Loss: 2.5133 | Acc: 0.2251
+Epoch 2/5 | Loss: 2.5051 | Acc: 0.2251
+Epoch 3/5 | Loss: 2.5040 | Acc: 0.2251
+Epoch 4/5 | Loss: 2.5072 | Acc: 0.2251
+Epoch 5/5 | Loss: 2.5040 | Acc: 0.2251
+Immediate eval on subject_11 -> Acc: 0.6797
+Forward eval on subject_12 (zero-shot) -> Acc: 0.7293
+
+=== Starting Task: subject_12 ===
+Epoch 1/5 | Loss: 2.4690 | Acc: 0.2703
+Epoch 2/5 | Loss: 2.4631 | Acc: 0.2703
+Epoch 3/5 | Loss: 2.5644 | Acc: 0.2703
+Epoch 4/5 | Loss: 2.9585 | Acc: 0.0754
+Epoch 5/5 | Loss: 2.6411 | Acc: 0.2703
+Immediate eval on subject_12 -> Acc: 0.7293
+Forward eval on subject_13 (zero-shot) -> Acc: 0.7955
+
+=== Starting Task: subject_13 ===
+Epoch 1/5 | Loss: 2.4473 | Acc: 0.4496
+Epoch 2/5 | Loss: 2.4900 | Acc: 0.4496
+Epoch 3/5 | Loss: 2.4672 | Acc: 0.4496
+Epoch 4/5 | Loss: 2.5295 | Acc: 0.4496
+Epoch 5/5 | Loss: 2.5755 | Acc: 0.4496
+Immediate eval on subject_13 -> Acc: 0.7955
+Forward eval on subject_14 (zero-shot) -> Acc: 0.7193
+
+=== Starting Task: subject_14 ===
+Epoch 1/5 | Loss: 2.6171 | Acc: 0.3086
+Epoch 2/5 | Loss: 2.4883 | Acc: 0.3086
+Epoch 3/5 | Loss: 2.4373 | Acc: 0.3086
+Epoch 4/5 | Loss: 2.4277 | Acc: 0.3086
+Epoch 5/5 | Loss: 2.4280 | Acc: 0.3086
+Immediate eval on subject_14 -> Acc: 0.7193
+Forward eval on subject_15 (zero-shot) -> Acc: 0.7761
+
+=== Starting Task: subject_15 ===
+Epoch 1/5 | Loss: 2.4071 | Acc: 0.3360
+Epoch 2/5 | Loss: 2.3937 | Acc: 0.3360
+Epoch 3/5 | Loss: 2.3909 | Acc: 0.3360
+Epoch 4/5 | Loss: 2.3868 | Acc: 0.3360
+Epoch 5/5 | Loss: 2.3870 | Acc: 0.3360
+Immediate eval on subject_15 -> Acc: 0.7761
+Forward eval on subject_16 (zero-shot) -> Acc: 0.7938
+
+=== Starting Task: subject_16 ===
+Epoch 1/5 | Loss: 2.3165 | Acc: 0.3859
+Epoch 2/5 | Loss: 2.3155 | Acc: 0.3859
+Epoch 3/5 | Loss: 2.3196 | Acc: 0.3859
+Epoch 4/5 | Loss: 2.3213 | Acc: 0.3859
+Epoch 5/5 | Loss: 2.3236 | Acc: 0.3859
+Immediate eval on subject_16 -> Acc: 0.7938
+Forward eval on subject_17 (zero-shot) -> Acc: 0.8109
+
+=== Starting Task: subject_17 ===
+Epoch 1/5 | Loss: 2.2239 | Acc: 0.4147
+Epoch 2/5 | Loss: 2.4594 | Acc: 0.4147
+Epoch 3/5 | Loss: 2.2850 | Acc: 0.4147
+Epoch 4/5 | Loss: 4.0575 | Acc: 0.1659
+Epoch 5/5 | Loss: 2.6137 | Acc: 0.3318
+Immediate eval on subject_17 -> Acc: 0.8109
+Forward eval on subject_18 (zero-shot) -> Acc: 0.7381
+
+=== Starting Task: subject_18 ===
+Epoch 1/5 | Loss: 2.4455 | Acc: 0.3210
+Epoch 2/5 | Loss: 2.4081 | Acc: 0.3210
+Epoch 3/5 | Loss: 2.3988 | Acc: 0.3210
+Epoch 4/5 | Loss: 2.3898 | Acc: 0.3210
+Epoch 5/5 | Loss: 2.3860 | Acc: 0.3210
+Immediate eval on subject_18 -> Acc: 0.7381
+Forward eval on subject_19 (zero-shot) -> Acc: 0.7660
+
+=== Starting Task: subject_19 ===
