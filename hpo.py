@@ -68,17 +68,20 @@ _ARCH_REGISTRY = {'hgrn': HGRNModel, 'lstm': LSTMModel}
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def _subject_loaders(subject_id, exercise, data_path, batch_size, shuffle):
-    """Train/test loaders + num_classes for a single subject × exercise."""
+def _subject_loaders(subject_id, exercise, data_path, batch_size, shuffle,
+                     features='raw', n_subwindows=10):
+    """Train/test loaders + num_classes + in_channels for a single subject × exercise."""
     path = f"{data_path}/s{subject_id}/S{subject_id}_A1_E{exercise}.mat"
     data = signal.load_data(path)
-    x_train, y_train, x_test, y_test, _ = signal.preprocessing_internals(data)
+    x_train, y_train, x_test, y_test, _ = signal.preprocessing_internals(
+        data, features=features, n_subwindows=n_subwindows)
     num_classes = int(max(np.max(y_train), np.max(y_test))) + 1
+    in_channels = x_train.shape[-1]
     train_loader = DataLoader(signal.NinaProDataset(x_train, y_train),
                               batch_size=batch_size, shuffle=shuffle, collate_fn=padding)
     test_loader  = DataLoader(signal.NinaProDataset(x_test, y_test),
                               batch_size=batch_size, shuffle=False, collate_fn=padding)
-    return train_loader, test_loader, num_classes
+    return train_loader, test_loader, num_classes, in_channels
 
 
 # ── Phase 1: architecture HPO (DIL stateless proxy) ──────────────────────────
@@ -102,12 +105,14 @@ def _arch_objective(trial, args, device):
     imm_accs = []
     try:
         for step, subj_id in enumerate(args.subjects):
-            train_loader, test_loader, nc = _subject_loaders(
-                subj_id, args.exercise, args.data_path, batch_size, True)
+            train_loader, test_loader, nc, in_channels = _subject_loaders(
+                subj_id, args.exercise, args.data_path, batch_size, True,
+                features=getattr(args, 'features', 'raw'),
+                n_subwindows=getattr(args, 'n_subwindows', 10))
 
             if model is None:
                 num_classes = nc
-                model     = ModelClass(in_channels=10, d_model=d_model,
+                model     = ModelClass(in_channels=in_channels, d_model=d_model,
                                        num_classes=num_classes, num_layers=num_layers).to(device)
                 optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -305,9 +310,11 @@ def _cl_objective(trial, args, arch_params, device):
         # Single DIL task stream: proxy subjects run sequentially (one model, all subjects)
         task_streams = []
         total_classes = None
+        in_channels = None
         for subj_id in args.subjects:
-            train_loader, test_loader, nc = _subject_loaders(
-                subj_id, args.exercise, args.data_path, batch_size, shuffle)
+            train_loader, test_loader, nc, ic = _subject_loaders(
+                subj_id, args.exercise, args.data_path, batch_size, shuffle,
+                features=args.features, n_subwindows=args.n_subwindows)
             task_streams.append({
                 'task_id': f'subject_{subj_id}',
                 'train': train_loader,
@@ -315,8 +322,9 @@ def _cl_objective(trial, args, arch_params, device):
             })
             if total_classes is None:
                 total_classes = nc
+                in_channels = ic
 
-        model     = ModelClass(in_channels=10, d_model=d_model,
+        model     = ModelClass(in_channels=in_channels, d_model=d_model,
                                num_classes=total_classes, num_layers=num_layers).to(device)
         optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -347,9 +355,12 @@ def _cl_objective(trial, args, arch_params, device):
                 path=args.data_path,
                 batch_size=batch_size,
                 shuffle=shuffle,
+                features=args.features,
+                n_subwindows=args.n_subwindows,
             )
+            in_channels = task_streams[0]['train'].dataset.X.shape[-1]
 
-            model     = ModelClass(in_channels=10, d_model=d_model,
+            model     = ModelClass(in_channels=in_channels, d_model=d_model,
                                    num_classes=total_classes, num_layers=num_layers).to(device)
             optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -394,6 +405,10 @@ def main():
                        help="Optuna study name (auto-generated if omitted)")
         p.add_argument('--out_dir',        default='results',
                        help="Where to save the best-params JSON and SQLite DB")
+        p.add_argument('--features',       default='raw', choices=['raw', 'td'],
+                       help="Input representation: 'raw' windows or 'td' (Hudgins) feature sequences")
+        p.add_argument('--n_subwindows',   type=int, default=10,
+                       help="Sub-windows per window for TD features (only if --features td)")
 
     # ── arch sub-command ──────────────────────────────────────────────────────
     p_arch = sub.add_parser('arch', help="Phase 1: architecture HPO")
@@ -429,10 +444,13 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
 
     # ── study setup ───────────────────────────────────────────────────────────
+    # Namespace the study by feature representation so 'td' runs don't collide
+    # with (or resume) the existing 'raw' studies.
+    feat_suffix = '' if args.features == 'raw' else f"_{args.features}"
     if args.phase == 'arch':
-        study_name = args.study_name or f"hpo_arch_{args.arch}_ex{args.exercise}"
+        study_name = args.study_name or f"hpo_arch_{args.arch}_ex{args.exercise}{feat_suffix}"
     else:
-        study_name = args.study_name or f"hpo_cl_{args.mode}_{args.arch}_{args.scenario}"
+        study_name = args.study_name or f"hpo_cl_{args.mode}_{args.arch}_{args.scenario}{feat_suffix}"
 
     storage = f"sqlite:///{args.out_dir}/{study_name}.db"
 

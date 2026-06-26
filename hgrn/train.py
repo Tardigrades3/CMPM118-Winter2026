@@ -56,6 +56,12 @@ def main():
     # Model architecture
     parser.add_argument('--d_model', type=int, default=128)
     parser.add_argument('--num_layers', type=int, default=4)
+    # Input representation
+    parser.add_argument('--features', type=str, default='raw', choices=['raw', 'td'],
+                        help="'raw' = windowed EMG samples (default). 'td' = time-domain "
+                             "(Hudgins) feature sequences — robust to electrode/amplitude drift.")
+    parser.add_argument('--n_subwindows', type=int, default=10,
+                        help="Sub-windows per window for TD features (only used if --features td).")
     # EWC
     parser.add_argument('--ewc_lambda', type=float, default=2000.0)
     # Replay / Herding (shared replay training path)
@@ -102,7 +108,9 @@ def main():
             exercise_number=args.exercise,
             path=args.data_path,
             shuffle=shuffle_train,
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            features=args.features,
+            n_subwindows=args.n_subwindows
         )
         print(f"Detected {total_classes} total classes for Exercise {args.exercise}.")
 
@@ -112,12 +120,18 @@ def main():
             subject_id=args.subject,
             path=args.data_path,
             batch_size=args.batch_size,
-            shuffle=shuffle_train
+            shuffle=shuffle_train,
+            features=args.features,
+            n_subwindows=args.n_subwindows
         )
         print(f"Detected {total_classes} total classes across exercises.")
 
+    # Input feature dimension is derived from the data (10 for raw EMG, C*5 for TD)
+    in_channels = task_streams[0]['train'].dataset.X.shape[-1]
+    print(f"Input feature dim (in_channels) = {in_channels}  | features = {args.features}")
+
     ModelClass = _ARCH_REGISTRY[args.arch]
-    model = ModelClass(in_channels=10, d_model=args.d_model,
+    model = ModelClass(in_channels=in_channels, d_model=args.d_model,
                        num_classes=total_classes, num_layers=args.num_layers).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     criterion = nn.CrossEntropyLoss()
@@ -136,6 +150,8 @@ def main():
             "scenario": args.scenario,
             "exercise": args.exercise,
             "subject": args.subject,
+            "features": args.features,
+            "in_channels": in_channels,
             "d_model": args.d_model,
             "num_layers": args.num_layers,
             "batch_size": args.batch_size,

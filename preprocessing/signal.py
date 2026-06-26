@@ -107,16 +107,56 @@ def load_data(path):
     data['repetition'] = mat['repetition']
     return data
 
-def preprocessing(path):
-    data = load_data(path)
-    return preprocessing_internals(data)
+def extract_td_features(X, n_subwindows=10, zc_threshold=0.01, ssc_threshold=0.01):
+    """Convert raw EMG windows into time-domain (Hudgins) feature sequences.
 
-def preprocessing_internals(data):
+    X : array [N, win_len, C] of windowed (filtered, normalised) EMG.
+    Returns [N, n_subwindows, C * 5]: each sub-window summarised by 5 TD features
+    per channel — MAV, RMS, waveform length (WL), zero crossings (ZC), slope-sign
+    changes (SSC). These are far more robust to amplitude / electrode-placement
+    variation than raw samples, which is exactly the cross-subject / cross-rep
+    variability that caps held-out accuracy. The RNN still sees a short sequence
+    (length n_subwindows) so the recurrent architecture stays meaningful.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    N, win_len, C = X.shape
+    sub_len = win_len // n_subwindows
+    if sub_len < 2:
+        raise ValueError(f"win_len={win_len} too small for n_subwindows={n_subwindows}")
+
+    # Trim to a multiple of n_subwindows, then split the time axis into sub-windows.
+    X = X[:, :sub_len * n_subwindows, :]
+    Xs = X.reshape(N, n_subwindows, sub_len, C)              # [N, n_sub, sub_len, C]
+
+    mav = np.mean(np.abs(Xs), axis=2)                        # [N, n_sub, C]
+    rms = np.sqrt(np.mean(Xs ** 2, axis=2))
+
+    d1 = np.diff(Xs, axis=2)                                 # first difference
+    wl = np.sum(np.abs(d1), axis=2)
+
+    s, t = Xs[:, :, :-1, :], Xs[:, :, 1:, :]
+    zc = np.sum(((s * t) < 0) & (np.abs(s - t) >= zc_threshold), axis=2)
+
+    d_prev, d_next = d1[:, :, :-1, :], d1[:, :, 1:, :]
+    ssc = np.sum(((d_prev * d_next) < 0) &
+                 ((np.abs(d_prev) >= ssc_threshold) | (np.abs(d_next) >= ssc_threshold)),
+                 axis=2)
+
+    feats = np.stack([mav, rms, wl, zc.astype(np.float64), ssc.astype(np.float64)], axis=-1)
+    feats = feats.reshape(N, n_subwindows, C * 5)            # [N, n_sub, C*5]
+    return feats.astype(np.float32)
+
+
+def preprocessing(path, features='raw', n_subwindows=10):
+    data = load_data(path)
+    return preprocessing_internals(data, features=features, n_subwindows=n_subwindows)
+
+def preprocessing_internals(data, features='raw', n_subwindows=10):
     emg_low = filter_data(data=data, f=[20, 450], butterworth_order=4, btype='bandpass')
 
     emg_notch = notch_filter(data=emg_low,f0=60,Q=30,fs=2000)
 
-    gestures = data['stimulus'].unique().tolist() 
+    gestures = data['stimulus'].unique().tolist()
     train_reps, test_reps = train_test_split(
         data['repetition'].unique().tolist(),
         test_size=0.3,
@@ -126,7 +166,7 @@ def preprocessing_internals(data):
 
     emg_norm = normalise(data = emg_notch, train_reps=train_reps)
 
-    win_len = 200    
+    win_len = 200
     win_stride = 50
 
     X_train, y_train, r_train = windowing(emg_norm, train_reps, gestures, win_len, win_stride)
@@ -135,7 +175,21 @@ def preprocessing_internals(data):
 
     if len(overlap) != 0:
         raise Exception(f'repetitions leaked between train and test for repetition {overlap}')
-    
+
+    if features == 'td':
+        X_train = extract_td_features(X_train, n_subwindows=n_subwindows)
+        X_test  = extract_td_features(X_test,  n_subwindows=n_subwindows)
+        # Standardise TD features (fit on train only) — feature scales differ wildly
+        # (WL summed over samples ≫ MAV), and the optimiser converges far better when
+        # they're comparable. No test leakage: stats come from train windows only.
+        flat = X_train.reshape(-1, X_train.shape[-1])
+        mu = flat.mean(axis=0)
+        sd = flat.std(axis=0) + 1e-8
+        X_train = ((X_train - mu) / sd).astype(np.float32)
+        X_test  = ((X_test  - mu) / sd).astype(np.float32)
+    elif features != 'raw':
+        raise ValueError(f"unknown features='{features}' (expected 'raw' or 'td')")
+
     class_weights = compute_class_weight("balanced", classes=np.unique(y_train), y=y_train)
     class_weights_dict = dict(zip(np.unique(y_train), class_weights))
 
