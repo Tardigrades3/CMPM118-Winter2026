@@ -56,6 +56,10 @@ def main():
     # Model architecture
     parser.add_argument('--d_model', type=int, default=128)
     parser.add_argument('--num_layers', type=int, default=4)
+    parser.add_argument('--disable_gamma_floor', action='store_true',
+                        help="HGRN ablation: remove the hierarchical forget-gate lower "
+                             "bound (gamma floor -> 0). Tests whether the floor causes "
+                             "stateful saturation/freezing. No effect for --arch lstm.")
     # Input representation
     parser.add_argument('--features', type=str, default='raw', choices=['raw', 'td'],
                         help="'raw' = windowed EMG samples (default). 'td' = time-domain "
@@ -131,8 +135,12 @@ def main():
     print(f"Input feature dim (in_channels) = {in_channels}  | features = {args.features}")
 
     ModelClass = _ARCH_REGISTRY[args.arch]
-    model = ModelClass(in_channels=in_channels, d_model=args.d_model,
-                       num_classes=total_classes, num_layers=args.num_layers).to(device)
+    model_kwargs = dict(in_channels=in_channels, d_model=args.d_model,
+                        num_classes=total_classes, num_layers=args.num_layers)
+    if args.arch == 'hgrn' and args.disable_gamma_floor:
+        # Ablation: remove the HGRN forget-gate lower bound (gamma floor -> 0).
+        model_kwargs['disable_gamma_floor'] = True
+    model = ModelClass(**model_kwargs).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     criterion = nn.CrossEntropyLoss()
 
@@ -154,6 +162,7 @@ def main():
             "in_channels": in_channels,
             "d_model": args.d_model,
             "num_layers": args.num_layers,
+            "disable_gamma_floor": bool(args.arch == 'hgrn' and args.disable_gamma_floor),
             "batch_size": args.batch_size,
             "epochs_per_task": args.epochs_per_task,
             "learning_rate": args.lr,

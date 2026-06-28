@@ -13,12 +13,16 @@ except ImportError:
     _HAS_FLA = False
 
 class FastHGRNLayer(nn.Module):
-    def __init__(self, d_model, layer_idx, num_layers):
+    def __init__(self, d_model, layer_idx, num_layers, disable_gamma_floor=False):
         super().__init__()
         self.d_model = d_model
-        
+        # Ablation knob: when True, drop the hierarchical lower bound so the forget
+        # gate is a plain sigmoid (f = sigmoid(f_logits), floor = 0). Used to test
+        # whether the gamma floor is what causes stateful saturation/freezing.
+        self.disable_gamma_floor = disable_gamma_floor
+
         # 1. The Hierarchical Lower Bound (Gamma)
-        initial_gamma = layer_idx / num_layers 
+        initial_gamma = layer_idx / num_layers
         initial_gamma_logit = torch.log(torch.tensor(initial_gamma + 1e-4) / (1 - initial_gamma + 1e-4))
         self.gamma_logit = nn.Parameter(initial_gamma_logit)
         
@@ -40,8 +44,11 @@ class FastHGRNLayer(nn.Module):
         g_logits = self.proj_g(x)
         
         # 2. Apply activations and the hierarchical forget-gate bound
-        gamma = torch.sigmoid(self.gamma_logit)
-        f = gamma + (1 - gamma) * torch.sigmoid(f_logits)
+        if self.disable_gamma_floor:
+            f = torch.sigmoid(f_logits)                       # ablation: no lower bound
+        else:
+            gamma = torch.sigmoid(self.gamma_logit)
+            f = gamma + (1 - gamma) * torch.sigmoid(f_logits)
         i = F.silu(i_logits) 
         
         # 3. Combine the input gate and candidate
@@ -81,13 +88,13 @@ class FastHGRNLayer(nn.Module):
 
 
 class HGRNModel(nn.Module):
-    def __init__(self, in_channels, d_model, num_classes, num_layers):
+    def __init__(self, in_channels, d_model, num_classes, num_layers, disable_gamma_floor=False):
         super().__init__()
         self.input_proj = nn.Linear(in_channels, d_model)
-        
+
         # Build the layers (no longer passing a num_heads argument)
         self.layers = nn.ModuleList([
-            FastHGRNLayer(d_model, i, num_layers) 
+            FastHGRNLayer(d_model, i, num_layers, disable_gamma_floor=disable_gamma_floor)
             for i in range(num_layers)
         ])
         
