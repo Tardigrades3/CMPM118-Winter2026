@@ -163,6 +163,7 @@ def main():
             "d_model": args.d_model,
             "num_layers": args.num_layers,
             "disable_gamma_floor": bool(args.arch == 'hgrn' and args.disable_gamma_floor),
+            "shuffle_train": bool(shuffle_train),
             "batch_size": args.batch_size,
             "epochs_per_task": args.epochs_per_task,
             "learning_rate": args.lr,
