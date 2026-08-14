@@ -326,56 +326,98 @@ def train_ewc_stateful(model, task_loader, optimizer, criterion, device, fisher_
         
 #     return epoch_loss, epoch_acc
 
+def train_ewc_stateless(model, task_loader, optimizer, criterion, device,
+                        fisher_dict=None, optpar_dict=None, ewc_lambda=1000):
+    """EWC with per-batch state reset — the principled choice for windowed EMG."""
+    model.train()
+    total_loss = 0.0
+    correct_predictions = 0
+    total_samples = 0
+
+    for sequences, labels, attention_mask in task_loader:
+        sequences = sequences.to(device)
+        labels = labels.to(device)
+        attention_mask = attention_mask.to(device)
+
+        optimizer.zero_grad()
+        logits, _ = model(x=sequences, states=None, attention_mask=attention_mask)
+        loss = criterion(logits, labels)
+
+        if fisher_dict is not None and optpar_dict is not None:
+            ewc_loss = 0.0
+            for name, param in model.named_parameters():
+                if name in fisher_dict:
+                    ewc_loss += (fisher_dict[name] * (param - optpar_dict[name]).pow(2)).sum()
+            loss = loss + ewc_lambda * ewc_loss
+
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+
+        total_loss += loss.item()
+        _, predicted = torch.max(logits, 1)
+        correct_predictions += (predicted == labels).sum().item()
+        total_samples += labels.size(0)
+
+    return total_loss / len(task_loader), correct_predictions / total_samples
+
+
 # HELPER FUNCTIONS
-def compute_fisher(model, task_loader, device):
+def compute_fisher(model, task_loader, device, stateless=False):
     """
     Computes the Fisher Information Matrix to determine weight importance.
     Called once at the very end of training on a specific subject.
+
+    stateless=True resets hidden state per batch (use for ewc_stateless).
+    stateless=False (default) carries state across batches (original behaviour).
     """
+    # NOTE: must be train() — cuDNN LSTM backward requires training mode
     model.train()
     fisher_dict = {}
     optpar_dict = {}
-    
+
     # Initialize the dictionaries with zeros
     for name, param in model.named_parameters():
         optpar_dict[name] = param.data.clone().to(device)
         fisher_dict[name] = torch.zeros_like(param.data).to(device)
-        
+
     h_states = None
-    
+
     # Run through the dataset one final time to measure gradient sensitivity
     for sequences, labels, attention_mask in task_loader:
         sequences = sequences.to(device)
         labels = labels.to(device)
         attention_mask = attention_mask.to(device)
-        
-        current_batch_size = sequences.size(0)
-        
-        # Slicing logic for the states
-        if h_states is not None:
-            detached_states = []
-            for h in h_states:
-                if h is not None:
-                    if isinstance(h, tuple):
-                        detached_states.append(tuple(state[:current_batch_size].detach() for state in h))
+
+        if stateless:
+            h_states = None
+        else:
+            current_batch_size = sequences.size(0)
+            # Slicing logic for the states
+            if h_states is not None:
+                detached_states = []
+                for h in h_states:
+                    if h is not None:
+                        if isinstance(h, tuple):
+                            detached_states.append(tuple(state[:current_batch_size].detach() for state in h))
+                        else:
+                            detached_states.append(h[:current_batch_size].detach())
                     else:
-                        detached_states.append(h[:current_batch_size].detach())
-                else:
-                    detached_states.append(None)
-            h_states = detached_states
+                        detached_states.append(None)
+                h_states = detached_states
 
         model.zero_grad()
         logits, h_states = model(x=sequences, states=h_states, attention_mask=attention_mask)
-        
-        # Calculate the log likelihood 
+
+        # Calculate the log likelihood
         log_likelihood = torch.nn.functional.log_softmax(logits, dim=1)
-        
+
         # We use the predicted class to calculate Fisher, not the true label
         predicted_classes = logits.max(1)[1]
-        
+
         loss = torch.nn.functional.nll_loss(log_likelihood, predicted_classes)
-        loss.backward(retain_graph=True)
-        
+        loss.backward()
+
         # Accumulate the squared gradients
         for name, param in model.named_parameters():
             if param.grad is not None:

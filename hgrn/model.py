@@ -1,15 +1,28 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from fla.ops.hgrn import chunk_hgrn 
+
+# GPU path uses the FLA/Triton chunked HGRN kernel. Fall back to a pure-PyTorch
+# timestep loop when FLA/Triton are unavailable (CPU / local dev) so the module
+# imports and runs everywhere; the recurrence is identical either way.
+try:
+    from fla.ops.hgrn import chunk_hgrn
+    _HAS_FLA = True
+except ImportError:
+    chunk_hgrn = None
+    _HAS_FLA = False
 
 class FastHGRNLayer(nn.Module):
-    def __init__(self, d_model, layer_idx, num_layers):
+    def __init__(self, d_model, layer_idx, num_layers, disable_gamma_floor=False):
         super().__init__()
         self.d_model = d_model
-        
+        # Ablation knob: when True, drop the hierarchical lower bound so the forget
+        # gate is a plain sigmoid (f = sigmoid(f_logits), floor = 0). Used to test
+        # whether the gamma floor is what causes stateful saturation/freezing.
+        self.disable_gamma_floor = disable_gamma_floor
+
         # 1. The Hierarchical Lower Bound (Gamma)
-        initial_gamma = layer_idx / num_layers 
+        initial_gamma = layer_idx / num_layers
         initial_gamma_logit = torch.log(torch.tensor(initial_gamma + 1e-4) / (1 - initial_gamma + 1e-4))
         self.gamma_logit = nn.Parameter(initial_gamma_logit)
         
@@ -31,24 +44,39 @@ class FastHGRNLayer(nn.Module):
         g_logits = self.proj_g(x)
         
         # 2. Apply activations and the hierarchical forget-gate bound
-        gamma = torch.sigmoid(self.gamma_logit)
-        f = gamma + (1 - gamma) * torch.sigmoid(f_logits)
+        if self.disable_gamma_floor:
+            f = torch.sigmoid(f_logits)                       # ablation: no lower bound
+        else:
+            gamma = torch.sigmoid(self.gamma_logit)
+            f = gamma + (1 - gamma) * torch.sigmoid(f_logits)
         i = F.silu(i_logits) 
         
         # 3. Combine the input gate and candidate
         x_recurrence = i * c
-        
-        # 4. The FLA kernel expects the forget gate in log-space
-        g = torch.log(f)
-        
-        # 5. THE KERNEL: Pass the 3D tensors directly (Batch, Time, Dimension)
-        h_out, final_state = chunk_hgrn(
-            x=x_recurrence, 
-            g=g, 
-            initial_state=state, 
-            output_final_state=True
-        )
-        
+
+        if _HAS_FLA and x.is_cuda:
+            # GPU path: FLA kernel expects the forget gate in log-space; runs the
+            # whole (B, T, D) linear recurrence in one chunked launch.
+            g = torch.log(f)
+            h_out, final_state = chunk_hgrn(
+                x=x_recurrence,
+                g=g,
+                initial_state=state,
+                output_final_state=True
+            )
+        else:
+            # CPU fallback: identical recurrence h_t = f_t * h_{t-1} + x_recurrence_t
+            B, T, D = x_recurrence.shape
+            if state is None:
+                state = torch.zeros(B, D, device=x.device, dtype=x.dtype)
+            outputs = []
+            h = state
+            for t in range(T):
+                h = f[:, t] * h + x_recurrence[:, t]
+                outputs.append(h.unsqueeze(1))
+            h_out = torch.cat(outputs, dim=1)
+            final_state = h
+
         # 6. Apply output gating
         g_out = torch.sigmoid(g_logits)
         out = g_out * h_out
@@ -60,13 +88,13 @@ class FastHGRNLayer(nn.Module):
 
 
 class HGRNModel(nn.Module):
-    def __init__(self, in_channels, d_model, num_classes, num_layers):
+    def __init__(self, in_channels, d_model, num_classes, num_layers, disable_gamma_floor=False):
         super().__init__()
         self.input_proj = nn.Linear(in_channels, d_model)
-        
+
         # Build the layers (no longer passing a num_heads argument)
         self.layers = nn.ModuleList([
-            FastHGRNLayer(d_model, i, num_layers) 
+            FastHGRNLayer(d_model, i, num_layers, disable_gamma_floor=disable_gamma_floor)
             for i in range(num_layers)
         ])
         

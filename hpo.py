@@ -68,17 +68,20 @@ _ARCH_REGISTRY = {'hgrn': HGRNModel, 'lstm': LSTMModel}
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def _subject_loaders(subject_id, exercise, data_path, batch_size, shuffle):
-    """Train/test loaders + num_classes for a single subject × exercise."""
+def _subject_loaders(subject_id, exercise, data_path, batch_size, shuffle,
+                     features='raw', n_subwindows=10):
+    """Train/test loaders + num_classes + in_channels for a single subject × exercise."""
     path = f"{data_path}/s{subject_id}/S{subject_id}_A1_E{exercise}.mat"
     data = signal.load_data(path)
-    x_train, y_train, x_test, y_test, _ = signal.preprocessing_internals(data)
+    x_train, y_train, x_test, y_test, _ = signal.preprocessing_internals(
+        data, features=features, n_subwindows=n_subwindows)
     num_classes = int(max(np.max(y_train), np.max(y_test))) + 1
+    in_channels = x_train.shape[-1]
     train_loader = DataLoader(signal.NinaProDataset(x_train, y_train),
                               batch_size=batch_size, shuffle=shuffle, collate_fn=padding)
     test_loader  = DataLoader(signal.NinaProDataset(x_test, y_test),
                               batch_size=batch_size, shuffle=False, collate_fn=padding)
-    return train_loader, test_loader, num_classes
+    return train_loader, test_loader, num_classes, in_channels
 
 
 # ── Phase 1: architecture HPO (DIL stateless proxy) ──────────────────────────
@@ -102,12 +105,14 @@ def _arch_objective(trial, args, device):
     imm_accs = []
     try:
         for step, subj_id in enumerate(args.subjects):
-            train_loader, test_loader, nc = _subject_loaders(
-                subj_id, args.exercise, args.data_path, batch_size, True)
+            train_loader, test_loader, nc, in_channels = _subject_loaders(
+                subj_id, args.exercise, args.data_path, batch_size, True,
+                features=getattr(args, 'features', 'raw'),
+                n_subwindows=getattr(args, 'n_subwindows', 10))
 
             if model is None:
                 num_classes = nc
-                model     = ModelClass(in_channels=10, d_model=d_model,
+                model     = ModelClass(in_channels=in_channels, d_model=d_model,
                                        num_classes=num_classes, num_layers=num_layers).to(device)
                 optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -133,9 +138,10 @@ def _arch_objective(trial, args, device):
 # ── Phase 2: CL method HPO (CIL proxy) ───────────────────────────────────────
 
 _CL_SEARCH_SPACES = {
-    'ewc_stateful': ['ewc_lambda'],
-    'replay_stateful':  ['replay_weight', 'capacity', 'noise_std', 'replay_batch_size'],
+    'ewc_stateless': ['ewc_lambda'],
+    'ewc_stateful':  ['ewc_lambda'],
     'replay_stateless': ['replay_weight', 'capacity', 'noise_std', 'replay_batch_size'],
+    'replay_stateful':  ['replay_weight', 'capacity', 'noise_std', 'replay_batch_size'],
     'herding_stateful': ['capacity_per_class', 'replay_batch_size'],
 }
 
@@ -192,17 +198,34 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
                 param.requires_grad = False
 
         for _ in range(epochs_per_task):
-            if mode == 'stateful':
+            if mode == 'stateless':
+                training_functions.train_naive_stateless(
+                    model, train_loader, optimizer, criterion, device)
+
+            elif mode == 'stateful':
                 training_functions.train_naive_stateful(
                     model, train_loader, optimizer, criterion, device)
 
-            elif mode in ('replay_stateful', 'replay_stateless'):
+            elif mode == 'replay_stateless':
+                training_functions.train_replay_stateless(
+                    model, train_loader, optimizer, criterion, device,
+                    memory_buffer=memory_buffer,
+                    replay_batch_size=cl_params.get('replay_batch_size', 16))
+
+            elif mode == 'replay_stateful':
                 training_functions.train_replay_stateful(
                     model, train_loader, optimizer, criterion, device,
                     memory_buffer=memory_buffer,
                     replay_batch_size=cl_params.get('replay_batch_size', 16),
                     replay_weight=cl_params.get('replay_weight', 0.5),
                     noise_std=cl_params.get('noise_std', 0.01))
+
+            elif mode == 'ewc_stateless':
+                training_functions.train_ewc_stateless(
+                    model, train_loader, optimizer, criterion, device,
+                    fisher_dict=fisher_dict,
+                    optpar_dict=optpar_dict,
+                    ewc_lambda=cl_params.get('ewc_lambda', 2000))
 
             elif mode == 'ewc_stateful':
                 training_functions.train_ewc_stateful(
@@ -228,9 +251,26 @@ def _run_one_cil_subject(model, optimizer, criterion, device,
             herding_buffer.select_exemplars(model, train_loader, device,
                                             num_classes=num_classes)
 
+        elif mode == 'ewc_stateless':
+            curr_fisher, curr_optpar = training_functions.compute_fisher(
+                model, train_loader, device, stateless=True)
+            if fisher_dict is None:
+                fisher_dict, optpar_dict = curr_fisher, curr_optpar
+            else:
+                for name in fisher_dict:
+                    fisher_dict[name] += curr_fisher[name]
+                    optpar_dict[name] = curr_optpar[name]
+
         elif mode == 'ewc_stateful':
-            fisher_dict, optpar_dict = training_functions.compute_fisher(
+            # Online EWC: accumulate Fisher across tasks (matches train.py).
+            curr_fisher, curr_optpar = training_functions.compute_fisher(
                 model, train_loader, device)
+            if fisher_dict is None:
+                fisher_dict, optpar_dict = curr_fisher, curr_optpar
+            else:
+                for name in fisher_dict:
+                    fisher_dict[name] += curr_fisher[name]
+                    optpar_dict[name] = curr_optpar[name]
 
         _, acc, _ = evaluation_functions.evaluate(model, test_loader, criterion, device)
         imm_accs.append(acc)
@@ -248,21 +288,33 @@ def _cl_objective(trial, args, arch_params, device):
     cl_params    = _suggest_cl_params(trial, args.mode)
     d_model      = arch_params['d_model']
     num_layers   = arch_params['num_layers']
-    lr           = arch_params['lr']
-    weight_decay = arch_params['weight_decay']
-    batch_size   = arch_params.get('batch_size', 32)
+
+    if getattr(args, 'tune_lr', False):
+        # Co-tune the optimisation knobs WITH the CL-method params. The CIL/stateless
+        # arch HPO picked lr≈5e-4, but the best DIL replay run used lr=1e-3 — freezing
+        # lr here is exactly why the CIL-tuned params underperformed in DIL. Tuning lr
+        # (and batch size / weight decay) in-scenario lets the HPO rediscover that.
+        lr           = trial.suggest_float('lr', 1e-4, 5e-3, log=True)
+        batch_size   = trial.suggest_categorical('batch_size', [16, 24, 32])
+        weight_decay = trial.suggest_float('weight_decay', 1e-5, 1e-2, log=True)
+    else:
+        lr           = arch_params['lr']
+        weight_decay = arch_params['weight_decay']
+        batch_size   = arch_params.get('batch_size', 32)
 
     ModelClass = _ARCH_REGISTRY[args.arch]
     criterion  = nn.CrossEntropyLoss()
-    shuffle    = 'stateless' in args.mode
+    shuffle    = args.mode in ('stateless', 'replay_stateless', 'ewc_stateless')
 
     if args.scenario == 'dil':
         # Single DIL task stream: proxy subjects run sequentially (one model, all subjects)
         task_streams = []
         total_classes = None
+        in_channels = None
         for subj_id in args.subjects:
-            train_loader, test_loader, nc = _subject_loaders(
-                subj_id, args.exercise, args.data_path, batch_size, shuffle)
+            train_loader, test_loader, nc, ic = _subject_loaders(
+                subj_id, args.exercise, args.data_path, batch_size, shuffle,
+                features=args.features, n_subwindows=args.n_subwindows)
             task_streams.append({
                 'task_id': f'subject_{subj_id}',
                 'train': train_loader,
@@ -270,8 +322,9 @@ def _cl_objective(trial, args, arch_params, device):
             })
             if total_classes is None:
                 total_classes = nc
+                in_channels = ic
 
-        model     = ModelClass(in_channels=10, d_model=d_model,
+        model     = ModelClass(in_channels=in_channels, d_model=d_model,
                                num_classes=total_classes, num_layers=num_layers).to(device)
         optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -302,9 +355,12 @@ def _cl_objective(trial, args, arch_params, device):
                 path=args.data_path,
                 batch_size=batch_size,
                 shuffle=shuffle,
+                features=args.features,
+                n_subwindows=args.n_subwindows,
             )
+            in_channels = task_streams[0]['train'].dataset.X.shape[-1]
 
-            model     = ModelClass(in_channels=10, d_model=d_model,
+            model     = ModelClass(in_channels=in_channels, d_model=d_model,
                                    num_classes=total_classes, num_layers=num_layers).to(device)
             optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -349,6 +405,10 @@ def main():
                        help="Optuna study name (auto-generated if omitted)")
         p.add_argument('--out_dir',        default='results',
                        help="Where to save the best-params JSON and SQLite DB")
+        p.add_argument('--features',       default='raw', choices=['raw', 'td'],
+                       help="Input representation: 'raw' windows or 'td' (Hudgins) feature sequences")
+        p.add_argument('--n_subwindows',   type=int, default=10,
+                       help="Sub-windows per window for TD features (only if --features td)")
 
     # ── arch sub-command ──────────────────────────────────────────────────────
     p_arch = sub.add_parser('arch', help="Phase 1: architecture HPO")
@@ -366,6 +426,10 @@ def main():
                       help="'cil': proxy is per-subject exercise stream; 'dil': proxy is cross-subject stream")
     p_cl.add_argument('--exercise', type=int, default=1,
                       help="Exercise number for DIL proxy (only used when --scenario dil)")
+    p_cl.add_argument('--tune-lr', dest='tune_lr', action='store_true',
+                      help="Co-tune lr/batch_size/weight_decay with the CL params "
+                           "(recommended for DIL — rediscovers lr~1e-3). The chosen "
+                           "values are written into the best-params JSON.")
     # Architecture params — load from phase-1 JSON or provide individually
     p_cl.add_argument('--arch_params',
                       help="Path to phase-1 best-params JSON (e.g. results/hpo_arch_hgrn_best.json)")
@@ -380,10 +444,13 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
 
     # ── study setup ───────────────────────────────────────────────────────────
+    # Namespace the study by feature representation so 'td' runs don't collide
+    # with (or resume) the existing 'raw' studies.
+    feat_suffix = '' if args.features == 'raw' else f"_{args.features}"
     if args.phase == 'arch':
-        study_name = args.study_name or f"hpo_arch_{args.arch}_ex{args.exercise}"
+        study_name = args.study_name or f"hpo_arch_{args.arch}_ex{args.exercise}{feat_suffix}"
     else:
-        study_name = args.study_name or f"hpo_cl_{args.mode}_{args.arch}_{args.scenario}"
+        study_name = args.study_name or f"hpo_cl_{args.mode}_{args.arch}_{args.scenario}{feat_suffix}"
 
     storage = f"sqlite:///{args.out_dir}/{study_name}.db"
 

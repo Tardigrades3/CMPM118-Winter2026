@@ -22,11 +22,13 @@ def padding(batch):
     return padded_batch, labels, attention_mask
 
 
-def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_subjects=27):
+def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_subjects=27,
+                          features='raw', n_subwindows=10):
     """Domain-Incremental Learning (DIL) stream: loops through subjects for a specific exercise.
 
     Returns (task_stream, total_classes) where total_classes is inferred from the
     maximum stimulus label seen across all subjects, matching the CIL convention.
+    features='td' swaps raw windows for time-domain feature sequences.
     """
     task_stream = []
     max_label = 0
@@ -35,7 +37,8 @@ def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_sub
         base_path = f"{path}/s{subject + 1}/S{subject + 1}_A1_E{exercise_number}.mat"
         data = signal.load_data(base_path)
 
-        x_train, y_train, x_test, y_test, _cw = signal.preprocessing_internals(data)
+        x_train, y_train, x_test, y_test, _cw = signal.preprocessing_internals(
+            data, features=features, n_subwindows=n_subwindows)
 
         if len(y_train) > 0:
             max_label = max(max_label, int(np.max(y_train)))
@@ -68,7 +71,8 @@ def build_ss_task_streams(exercise_number, path, shuffle, batch_size=32, num_sub
     return task_stream, max_label + 1
 
 
-def build_cil_multi_exercise_stream(subject_id, path, batch_size=32, shuffle=True):
+def build_cil_multi_exercise_stream(subject_id, path, batch_size=32, shuffle=True,
+                                    features='raw', n_subwindows=10):
     """Class-Incremental Learning (CIL) stream: loops through 3 exercises for a single subject."""
     exercises = [1, 2, 3]
     task_streams = []
@@ -81,7 +85,8 @@ def build_cil_multi_exercise_stream(subject_id, path, batch_size=32, shuffle=Tru
 
         base_path = f"{path}/s{subject_id}/S{subject_id}_A1_E{ex_num}.mat"
         data = signal.load_data(base_path)
-        x_train, y_train, x_test, y_test, _cw = signal.preprocessing_internals(data)
+        x_train, y_train, x_test, y_test, _cw = signal.preprocessing_internals(
+            data, features=features, n_subwindows=n_subwindows)
 
         # Class 0 (Rest) is shared; all other classes are offset to make labels disjoint.
         y_train_offset = np.where(y_train == 0, 0, y_train + current_class_offset)

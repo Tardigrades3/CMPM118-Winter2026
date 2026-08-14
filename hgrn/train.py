@@ -37,7 +37,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train the HGRN Model on NinaPro Data")
     parser.add_argument('--mode', type=str, required=True,
                         choices=['stateless', 'stateful', 'replay_stateless', 'replay_stateful',
-                                 'ewc_stateful', 'herding_stateful'],
+                                 'ewc_stateless', 'ewc_stateful', 'herding_stateful'],
                         help="Continual learning paradigm.")
     parser.add_argument('--scenario', type=str, required=True, choices=['dil', 'cil'],
                         help="'dil': train across subjects. 'cil': train across exercises for one subject.")
@@ -56,6 +56,16 @@ def main():
     # Model architecture
     parser.add_argument('--d_model', type=int, default=128)
     parser.add_argument('--num_layers', type=int, default=4)
+    parser.add_argument('--disable_gamma_floor', action='store_true',
+                        help="HGRN ablation: remove the hierarchical forget-gate lower "
+                             "bound (gamma floor -> 0). Tests whether the floor causes "
+                             "stateful saturation/freezing. No effect for --arch lstm.")
+    # Input representation
+    parser.add_argument('--features', type=str, default='raw', choices=['raw', 'td'],
+                        help="'raw' = windowed EMG samples (default). 'td' = time-domain "
+                             "(Hudgins) feature sequences — robust to electrode/amplitude drift.")
+    parser.add_argument('--n_subwindows', type=int, default=10,
+                        help="Sub-windows per window for TD features (only used if --features td).")
     # EWC
     parser.add_argument('--ewc_lambda', type=float, default=2000.0)
     # Replay / Herding (shared replay training path)
@@ -65,9 +75,33 @@ def main():
     parser.add_argument('--noise_std', type=float, default=0.01)
     # Herding
     parser.add_argument('--herding_capacity_per_class', type=int, default=20)
+    # Reproducibility
+    parser.add_argument('--seed', type=int, default=None,
+                        help="Random seed for model init + data shuffling (for seeded repeats).")
+    parser.add_argument('--results_dir', type=str, default='results',
+                        help="Directory for eval JSONs (use a separate dir to keep runs apart).")
+    parser.add_argument('--shuffle', type=str, default='auto', choices=['auto', 'true', 'false'],
+                        help="Train-loader shuffle override. 'auto' = shuffle iff stateless "
+                             "(default). Use 'true' to e.g. run a stateful mode WITH shuffling "
+                             "to isolate ordering from state-carrying.")
     args = parser.parse_args()
 
-    is_stateless = args.mode in ['stateless', 'replay_stateless']
+    if args.seed is not None:
+        import random
+        import numpy as np
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        torch.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
+
+    is_stateless = args.mode in ['stateless', 'replay_stateless', 'ewc_stateless']
+    # Resolve the train-loader shuffle: 'auto' keeps the original behaviour
+    # (shuffle iff stateless); 'true'/'false' force it for isolation experiments.
+    if args.shuffle == 'auto':
+        shuffle_train = is_stateless
+    else:
+        shuffle_train = (args.shuffle == 'true')
+    print(f"Train-loader shuffle = {shuffle_train}")
 
     print(f"Initializing {args.arch.upper()} | {args.mode.upper()} | {args.scenario.upper()} ...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -77,8 +111,10 @@ def main():
         task_streams, total_classes = ss_preprocessing.build_ss_task_streams(
             exercise_number=args.exercise,
             path=args.data_path,
-            shuffle=is_stateless,
-            batch_size=args.batch_size
+            shuffle=shuffle_train,
+            batch_size=args.batch_size,
+            features=args.features,
+            n_subwindows=args.n_subwindows
         )
         print(f"Detected {total_classes} total classes for Exercise {args.exercise}.")
 
@@ -88,13 +124,23 @@ def main():
             subject_id=args.subject,
             path=args.data_path,
             batch_size=args.batch_size,
-            shuffle=is_stateless
+            shuffle=shuffle_train,
+            features=args.features,
+            n_subwindows=args.n_subwindows
         )
         print(f"Detected {total_classes} total classes across exercises.")
 
+    # Input feature dimension is derived from the data (10 for raw EMG, C*5 for TD)
+    in_channels = task_streams[0]['train'].dataset.X.shape[-1]
+    print(f"Input feature dim (in_channels) = {in_channels}  | features = {args.features}")
+
     ModelClass = _ARCH_REGISTRY[args.arch]
-    model = ModelClass(in_channels=10, d_model=args.d_model,
-                       num_classes=total_classes, num_layers=args.num_layers).to(device)
+    model_kwargs = dict(in_channels=in_channels, d_model=args.d_model,
+                        num_classes=total_classes, num_layers=args.num_layers)
+    if args.arch == 'hgrn' and args.disable_gamma_floor:
+        # Ablation: remove the HGRN forget-gate lower bound (gamma floor -> 0).
+        model_kwargs['disable_gamma_floor'] = True
+    model = ModelClass(**model_kwargs).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     criterion = nn.CrossEntropyLoss()
 
@@ -112,8 +158,12 @@ def main():
             "scenario": args.scenario,
             "exercise": args.exercise,
             "subject": args.subject,
+            "features": args.features,
+            "in_channels": in_channels,
             "d_model": args.d_model,
             "num_layers": args.num_layers,
+            "disable_gamma_floor": bool(args.arch == 'hgrn' and args.disable_gamma_floor),
+            "shuffle_train": bool(shuffle_train),
             "batch_size": args.batch_size,
             "epochs_per_task": args.epochs_per_task,
             "learning_rate": args.lr,
@@ -124,6 +174,7 @@ def main():
             "replay_weight": args.replay_weight,
             "noise_std": args.noise_std,
             "herding_capacity_per_class": args.herding_capacity_per_class,
+            "seed": args.seed,
         },
         "training_history": {},
         "immediate_performance": {},
@@ -176,6 +227,13 @@ def main():
                         replay_weight=args.replay_weight,
                         noise_std=args.noise_std)
 
+                case 'ewc_stateless':
+                    epoch_loss, epoch_acc = training_functions.train_ewc_stateless(
+                        model, train_loader, optimizer, criterion, device,
+                        fisher_dict=fisher_dict,
+                        optpar_dict=optpar_dict,
+                        ewc_lambda=args.ewc_lambda)
+
                 case 'ewc_stateful':
                     epoch_loss, epoch_acc = training_functions.train_ewc_stateful(
                         model, train_loader, optimizer, criterion, device,
@@ -211,9 +269,30 @@ def main():
                 print("Running herding to select prototypical exemplars...")
                 herding_buffer.select_exemplars(model, train_loader, device, num_classes=total_classes)
 
+            case 'ewc_stateless':
+                print("Computing Fisher Information Matrix (stateless / online / accumulated)...")
+                curr_fisher, curr_optpar = training_functions.compute_fisher(
+                    model, train_loader, device, stateless=True)
+                if fisher_dict is None:
+                    fisher_dict, optpar_dict = curr_fisher, curr_optpar
+                else:
+                    for name in fisher_dict:
+                        fisher_dict[name] += curr_fisher[name]
+                        optpar_dict[name] = curr_optpar[name]
+
             case 'ewc_stateful':
-                print("Computing Fisher Information Matrix...")
-                fisher_dict, optpar_dict = training_functions.compute_fisher(model, train_loader, device)
+                print("Computing Fisher Information Matrix (online / accumulated)...")
+                curr_fisher, curr_optpar = training_functions.compute_fisher(model, train_loader, device)
+                # Online EWC: accumulate (sum) Fisher across tasks, anchor to the
+                # latest weights. This makes the penalty grow with the number of
+                # tasks — the formulation that actually helps in DIL (many subjects),
+                # unlike single-task overwrite which gives ~zero DIL lift.
+                if fisher_dict is None:
+                    fisher_dict, optpar_dict = curr_fisher, curr_optpar
+                else:
+                    for name in fisher_dict:
+                        fisher_dict[name] += curr_fisher[name]
+                        optpar_dict[name] = curr_optpar[name]
 
         # Immediate evaluation
         imm_loss, imm_acc, imm_per_class = evaluation_functions.evaluate(
@@ -260,7 +339,8 @@ def main():
 
     subject_id = args.subject if args.scenario == 'cil' else None
     saved_path = evaluation_functions.save_evaluation_results(
-        eval_results, f"{args.scenario}_{args.mode}", args.exercise, subject_id=subject_id)
+        eval_results, f"{args.scenario}_{args.mode}", args.exercise,
+        subject_id=subject_id, results_dir=args.results_dir, seed=args.seed)
     print(f"\nEvaluation saved to: {saved_path}")
 
 
