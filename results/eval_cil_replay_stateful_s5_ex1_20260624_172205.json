@@ -1,0 +1,277 @@
+{
+    "metadata": {
+        "arch": "lstm",
+        "mode": "replay_stateful",
+        "scenario": "cil",
+        "exercise": 1,
+        "subject": 5,
+        "d_model": 256,
+        "num_layers": 2,
+        "batch_size": 16,
+        "epochs_per_task": 5,
+        "learning_rate": 0.00048191641378257394,
+        "weight_decay": 0.00019468256970493801,
+        "ewc_lambda": 2000.0,
+        "replay_capacity": 10000,
+        "replay_batch_size": 16,
+        "replay_weight": 0.5113875507308893,
+        "noise_std": 0.0013492834268013251,
+        "herding_capacity_per_class": 20
+    },
+    "training_history": {
+        "Subject_5_Exercise_1": {
+            "epoch_losses": [
+                5.1578034866704705,
+                3.3973753099088317,
+                2.9689296263235585,
+                2.899917361912904,
+                2.859788821803199
+            ],
+            "epoch_accuracies": [
+                0.1552723059096176,
+                0.0,
+                0.04287369640787949,
+                0.16917728852838934,
+                0.17844727694090382
+            ]
+        },
+        "Subject_5_Exercise_2": {
+            "epoch_losses": [
+                6.894914850012048,
+                5.820739837435933,
+                5.536466062843026,
+                5.240355228448843,
+                5.1273732154400316
+            ],
+            "epoch_accuracies": [
+                0.2696078431372549,
+                0.2238562091503268,
+                0.12826797385620914,
+                0.2704248366013072,
+                0.2630718954248366
+            ]
+        },
+        "Subject_5_Exercise_3": {
+            "epoch_losses": [
+                7.067500105270972,
+                5.370124497092688,
+                5.76915370615629,
+                4.991547278486765,
+                4.564509308108916
+            ],
+            "epoch_accuracies": [
+                0.2308157099697885,
+                0.2199395770392749,
+                0.20483383685800605,
+                0.24169184290030213,
+                0.24954682779456194
+            ]
+        }
+    },
+    "immediate_performance": {
+        "Subject_5_Exercise_1": {
+            "loss": 2.359174625741111,
+            "accuracy": 0.6611498257839721,
+            "per_class_accuracy": {
+                "class_0": 0.9908136482939632,
+                "class_1": 0.0,
+                "class_2": 0.0,
+                "class_3": 0.0,
+                "class_4": 0.0,
+                "class_5": 0.0,
+                "class_6": 0.0,
+                "class_7": 0.0967741935483871,
+                "class_8": 0.03571428571428571,
+                "class_9": 0.0,
+                "class_10": 0.0,
+                "class_11": 0.0,
+                "class_12": 0.0
+            }
+        },
+        "Subject_5_Exercise_2": {
+            "loss": 2.837769202157563,
+            "accuracy": 0.5929802955665024,
+            "per_class_accuracy": {
+                "class_0": 0.803236797274276,
+                "class_13": 0.0,
+                "class_14": 0.0,
+                "class_15": 0.0,
+                "class_16": 0.0,
+                "class_17": 0.0,
+                "class_18": 0.0,
+                "class_19": 0.0,
+                "class_20": 0.0,
+                "class_21": 0.0,
+                "class_22": 0.0,
+                "class_23": 0.0,
+                "class_24": 0.0,
+                "class_25": 0.058823529411764705,
+                "class_26": 0.0,
+                "class_27": 0.0,
+                "class_28": 0.6,
+                "class_29": 0.034482758620689655
+            }
+        },
+        "Subject_5_Exercise_3": {
+            "loss": 1.8487577938088557,
+            "accuracy": 0.708062667176156,
+            "per_class_accuracy": {
+                "class_0": 0.9149367088607595,
+                "class_30": 0.0,
+                "class_31": 0.0,
+                "class_32": 0.0,
+                "class_33": 0.0,
+                "class_34": 0.0,
+                "class_35": 0.0,
+                "class_36": 0.0,
+                "class_37": 0.0,
+                "class_38": 0.0,
+                "class_39": 0.047619047619047616,
+                "class_40": 0.0,
+                "class_41": 0.0,
+                "class_42": 0.0,
+                "class_43": 0.0,
+                "class_44": 0.0,
+                "class_45": 0.0,
+                "class_46": 0.0,
+                "class_47": 0.0,
+                "class_48": 0.0,
+                "class_49": 0.1875,
+                "class_50": 0.36363636363636365,
+                "class_51": 0.7692307692307693,
+                "class_52": 0.22580645161290322
+            }
+        }
+    },
+    "forward_performance": {
+        "Subject_5_Exercise_2": {
+            "loss": 4.0325578918644025,
+            "accuracy": 0.7118226600985221,
+            "per_class_accuracy": {
+                "class_0": 0.9846678023850085,
+                "class_13": 0.0,
+                "class_14": 0.0,
+                "class_15": 0.0,
+                "class_16": 0.0,
+                "class_17": 0.0,
+                "class_18": 0.0,
+                "class_19": 0.0,
+                "class_20": 0.0,
+                "class_21": 0.0,
+                "class_22": 0.0,
+                "class_23": 0.0,
+                "class_24": 0.0,
+                "class_25": 0.0,
+                "class_26": 0.0,
+                "class_27": 0.0,
+                "class_28": 0.0,
+                "class_29": 0.0
+            }
+        },
+        "Subject_5_Exercise_3": {
+            "loss": 3.944691221888472,
+            "accuracy": 0.6935422239205197,
+            "per_class_accuracy": {
+                "class_0": 0.9189873417721519,
+                "class_30": 0.0,
+                "class_31": 0.0,
+                "class_32": 0.0,
+                "class_33": 0.0,
+                "class_34": 0.0,
+                "class_35": 0.0,
+                "class_36": 0.0,
+                "class_37": 0.0,
+                "class_38": 0.0,
+                "class_39": 0.0,
+                "class_40": 0.0,
+                "class_41": 0.0,
+                "class_42": 0.0,
+                "class_43": 0.0,
+                "class_44": 0.0,
+                "class_45": 0.0,
+                "class_46": 0.0,
+                "class_47": 0.0,
+                "class_48": 0.0,
+                "class_49": 0.0,
+                "class_50": 0.0,
+                "class_51": 0.0,
+                "class_52": 0.0
+            }
+        }
+    },
+    "final_performance": {
+        "Subject_5_Exercise_1": {
+            "loss": 1.9661412785450618,
+            "accuracy": 0.6193379790940766,
+            "per_class_accuracy": {
+                "class_0": 0.9330708661417323,
+                "class_1": 0.0,
+                "class_2": 0.0,
+                "class_3": 0.0,
+                "class_4": 0.0,
+                "class_5": 0.0,
+                "class_6": 0.0,
+                "class_7": 0.0,
+                "class_8": 0.0,
+                "class_9": 0.0,
+                "class_10": 0.0,
+                "class_11": 0.0,
+                "class_12": 0.0
+            }
+        },
+        "Subject_5_Exercise_2": {
+            "loss": 2.026929535117804,
+            "accuracy": 0.6317733990147784,
+            "per_class_accuracy": {
+                "class_0": 0.8722316865417377,
+                "class_13": 0.0,
+                "class_14": 0.0,
+                "class_15": 0.0,
+                "class_16": 0.0,
+                "class_17": 0.0,
+                "class_18": 0.0,
+                "class_19": 0.0,
+                "class_20": 0.0,
+                "class_21": 0.0,
+                "class_22": 0.0,
+                "class_23": 0.08333333333333333,
+                "class_24": 0.0,
+                "class_25": 0.0,
+                "class_26": 0.0,
+                "class_27": 0.0,
+                "class_28": 0.0,
+                "class_29": 0.0
+            }
+        },
+        "Subject_5_Exercise_3": {
+            "loss": 1.8487577938088557,
+            "accuracy": 0.708062667176156,
+            "per_class_accuracy": {
+                "class_0": 0.9149367088607595,
+                "class_30": 0.0,
+                "class_31": 0.0,
+                "class_32": 0.0,
+                "class_33": 0.0,
+                "class_34": 0.0,
+                "class_35": 0.0,
+                "class_36": 0.0,
+                "class_37": 0.0,
+                "class_38": 0.0,
+                "class_39": 0.047619047619047616,
+                "class_40": 0.0,
+                "class_41": 0.0,
+                "class_42": 0.0,
+                "class_43": 0.0,
+                "class_44": 0.0,
+                "class_45": 0.0,
+                "class_46": 0.0,
+                "class_47": 0.0,
+                "class_48": 0.0,
+                "class_49": 0.1875,
+                "class_50": 0.36363636363636365,
+                "class_51": 0.7692307692307693,
+                "class_52": 0.22580645161290322
+            }
+        }
+    }
+}

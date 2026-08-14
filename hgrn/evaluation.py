@@ -46,12 +46,15 @@ def evaluate(model, test_loader, criterion, device):
     return eval_loss, eval_acc, per_class_acc
 
 
-def save_evaluation_results(results_dict, mode, exercise):
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    save_dir = os.path.join(_PROJECT_ROOT, "results")
+def save_evaluation_results(results_dict, mode, exercise, subject_id=None,
+                            results_dir="results", seed=None):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    save_dir = results_dir if os.path.isabs(results_dir) else os.path.join(_PROJECT_ROOT, results_dir)
     os.makedirs(save_dir, exist_ok=True)
 
-    filename = f"eval_{mode}_ex{exercise}_{timestamp}.json"
+    subj_part = f"_s{subject_id}" if subject_id is not None else ""
+    seed_part = f"_seed{seed}" if seed is not None else ""
+    filename = f"eval_{mode}{subj_part}{seed_part}_ex{exercise}_{timestamp}.json"
     filepath = os.path.join(save_dir, filename)
 
     with open(filepath, 'w') as f:

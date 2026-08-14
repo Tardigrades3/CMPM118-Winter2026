@@ -1,0 +1,13 @@
+{
+  "trial": 34,
+  "value": 0.7464666312184249,
+  "params": {
+    "replay_weight": 0.4127363569331114,
+    "capacity": 5000,
+    "noise_std": 0.09970682275036447,
+    "replay_batch_size": 8,
+    "lr": 0.0008426799418226363,
+    "batch_size": 16,
+    "weight_decay": 0.0003099246938221804
+  }
+}
