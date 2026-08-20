@@ -411,8 +411,9 @@ def get_device_info(device):
         "fla_triton_kernel_active_for_hgrn": bool(_HAS_FLA and device.type == 'cuda'),
     }
     if torch.cuda.is_available():
-        info["cuda_device_name"] = torch.cuda.get_device_name(device)
         info["cuda_device_count"] = torch.cuda.device_count()
+    if device.type == 'cuda':
+        info["cuda_device_name"] = torch.cuda.get_device_name(device)
     return info
 
 
