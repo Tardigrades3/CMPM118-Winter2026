@@ -1,0 +1,552 @@
+{
+  "generated_at": "2026-08-20T23:45:24.518498",
+  "config": {
+    "arch": "both",
+    "device": "cpu",
+    "in_channels": 50,
+    "d_model": 128,
+    "num_layers": 4,
+    "num_classes": 13,
+    "seq_len": 10,
+    "disable_gamma_floor": false,
+    "replay_capacity": 10000,
+    "replay_batch_size": 16,
+    "herding_capacity_per_class": 20,
+    "herding_dataset_size_per_class": 30,
+    "max_cil_classes": 20,
+    "batch_size": 32,
+    "ewc_lambda": 2000.0,
+    "ewc_fisher_dataset_size": 480,
+    "n_warmup": 10,
+    "n_repeats": 300,
+    "seed": 42,
+    "output": "results_compute_profile/profile_cpu_dil_td.json"
+  },
+  "metric_legend": {
+    "1": {
+      "key": "param_count_total",
+      "category": "device_independent",
+      "unit": "count",
+      "description": "Total model parameters (sum of p.numel() over all model.parameters())."
+    },
+    "2": {
+      "key": "param_count_by_component",
+      "category": "device_independent",
+      "unit": "count",
+      "description": "Parameter count broken down by top-level module (input_proj, layers, head)."
+    },
+    "3": {
+      "key": "model_size_bytes",
+      "category": "device_independent",
+      "unit": "bytes",
+      "description": "Storage footprint of param_count_total at fp32 (4B), fp16 (2B), and int8 (1B) per param."
+    },
+    "4": {
+      "key": "flops_per_timestep_marginal",
+      "category": "device_independent",
+      "unit": "FLOPs",
+      "description": "Marginal MACs*2 added per extra timestep of recurrence, i.e. (window_macs - single_step_macs) / (seq_len - 1). Excludes the classification head, which fires once per window regardless of length. Counted via forward hooks on every nn.Linear/nn.LSTM sub-module from actual tensor shapes (not a hand-derived per-architecture formula), so it stays correct if d_model/num_layers change. Elementwise ops (sigmoid, SiLU, LayerNorm) are excluded as asymptotically negligible next to the matmuls."
+    },
+    "5": {
+      "key": "flops_per_window",
+      "category": "device_independent",
+      "unit": "FLOPs",
+      "description": "MACs*2 for one full forward pass over a seq_len-timestep window (batch=1), via the same hook-based counter as metric 4. This is the stateless-inference compute cost."
+    },
+    "6": {
+      "key": "replay_buffer_bytes_simple",
+      "category": "device_independent",
+      "unit": "bytes",
+      "description": "Memory footprint of SimpleMemoryBuffer at --replay_capacity: capacity * (sequence + label + mask) bytes, using the actual dtypes stored by hgrn/buffers.py (float32 sequence, int64 label, bool mask)."
+    },
+    "7": {
+      "key": "replay_buffer_bytes_herding",
+      "category": "device_independent",
+      "unit": "bytes",
+      "description": "Memory footprint of HerdingBuffer at --herding_capacity_per_class * num_classes, plus a growth curve up to --max_cil_classes. Unlike metric 6 (fixed capacity), this grows linearly with classes seen, which matters for on-device claims about a long CIL stream."
+    },
+    "8": {
+      "key": "inference_latency_stateless_window_ms",
+      "category": "device_dependent",
+      "unit": "milliseconds",
+      "description": "Wall-clock latency of one full-window forward pass (batch=1, eval mode, no_grad), mean/median/p95/p99/std over --n_repeats after --n_warmup warmup calls. torch.cuda.synchronize() brackets each call when on GPU."
+    },
+    "9": {
+      "key": "inference_latency_streaming_single_timestep_ms",
+      "category": "device_dependent",
+      "unit": "milliseconds",
+      "description": "Wall-clock latency of one incremental single-EMG-sample forward pass (T=1), with recurrent state carried from the previous call. This is a real-time streaming/on-device deployment pattern (classify as each new sample arrives) and is DISTINCT from this repo's 'stateful' training/eval mode, which carries state window-to-window (T=seq_len per call), never timestep-to-timestep -- see AGENT_HANDOFF.md section 3 on not conflating state-handling axes. Same statistics as metric 8."
+    },
+    "10": {
+      "key": "peak_activation_memory_bytes",
+      "category": "device_dependent",
+      "unit": "bytes",
+      "description": "Peak memory during one stateless-window forward pass. On CUDA this is exact and isolated to the call (torch.cuda.max_memory_allocated after reset_peak_memory_stats). On CPU this is resource.getrusage's whole-process peak RSS high-water mark *after* the call, not isolated to it (stdlib has no exact per-call CPU activation-memory counter) -- treat the CPU number as an upper bound, not a precise delta."
+    },
+    "11": {
+      "key": "herding_selection_wall_time_s",
+      "category": "device_dependent",
+      "unit": "seconds",
+      "description": "Wall-clock time for HerdingBuffer.select_exemplars over a synthetic dataset of num_classes * --herding_dataset_size_per_class samples: one feature-extraction forward pass per sample plus the O(capacity_per_class * N_class) per-class iterative argmin selection loop."
+    },
+    "12": {
+      "key": "replay_step_overhead_ms",
+      "category": "device_dependent",
+      "unit": "milliseconds",
+      "description": "Extra wall-clock time one training step costs when a replay batch of --replay_batch_size samples is concatenated onto a --batch_size task batch, vs a task-only baseline step (both forward+backward+optimizer.step on real gradients). Reports both step distributions plus the median delta/ratio."
+    },
+    "13": {
+      "key": "device_info",
+      "category": "context",
+      "unit": "n/a",
+      "description": "Hardware/software context (CPU model, core count, CUDA device if any, torch version, whether the FLA/Triton fused HGRN kernel or the pure-PyTorch CPU timestep-loop fallback is active) needed to interpret metrics 8-12, which are only meaningful next to the machine that produced them."
+    },
+    "14": {
+      "key": "training_flops_per_sample_estimate",
+      "category": "derived_estimate",
+      "unit": "FLOPs",
+      "description": "3 * flops_per_window (metric 5), using the standard forward=1x / backward~=2x heuristic for total training compute per sample. This is an approximation, not a profiler measurement -- backward-pass FLOPs are not counted directly by the hook counter."
+    },
+    "15": {
+      "key": "ewc_fisher_computation_wall_time_s",
+      "category": "device_dependent",
+      "unit": "seconds",
+      "description": "Wall-clock time for hgrn/training.py's compute_fisher to run once over a synthetic task's worth of training data: one forward + backward pass per batch (against the model's own predicted class, not the true label, per the real implementation), accumulating squared gradients into the Fisher dict. Called for real via the actual compute_fisher function, not reimplemented. Run with stateless=True, matching the paper's stated config ('Fisher is computed in stateless mode to remain consistent with the inference regime'). This is the EWC analog of metric 11 (herding selection) -- a one-time cost paid once per task boundary, not per training step."
+    },
+    "16": {
+      "key": "ewc_step_overhead_ms",
+      "category": "device_dependent",
+      "unit": "milliseconds",
+      "description": "Extra wall-clock time one training step costs when the EWC quadratic penalty term (lambda_ewc * sum_i F_i * (theta_i - theta_i*)^2, evaluated over every named parameter) is added to the loss before backward, vs a penalty-free baseline step -- both include the same gradient-norm clipping (max_norm=1.0) used in every real training function in hgrn/training.py. This is the EWC analog of metric 12 (replay-step overhead). Fisher/anchor-weight values used here are synthetic (random, matching real tensor shapes), since the penalty's compute cost does not depend on the specific Fisher values, only on doing the per-parameter elementwise op over every parameter tensor."
+    }
+  },
+  "device_info": {
+    "metric_id": 13,
+    "category": "context",
+    "unit": "n/a",
+    "value": {
+      "torch_version": "2.11.0+cu130",
+      "platform": "Linux-6.17.0-1017-aws-x86_64-with-glibc2.39",
+      "processor": "x86_64",
+      "cpu_count": 4,
+      "requested_device": "cpu",
+      "cuda_available": true,
+      "fla_triton_available": true,
+      "fla_triton_kernel_active_for_hgrn": false,
+      "cuda_device_count": 1
+    }
+  },
+  "replay_buffer_memory": {
+    "replay_buffer_bytes_simple": {
+      "metric_id": 6,
+      "category": "device_independent",
+      "unit": "bytes",
+      "value": {
+        "per_sample_bytes": 2018,
+        "capacity": 10000,
+        "total_bytes": 20180000
+      }
+    },
+    "replay_buffer_bytes_herding": {
+      "metric_id": 7,
+      "category": "device_independent",
+      "unit": "bytes",
+      "value": {
+        "per_sample_bytes": 2018,
+        "capacity_per_class": 20,
+        "num_classes_configured": 13,
+        "total_bytes_at_configured_num_classes": 524680,
+        "growth_curve": [
+          {
+            "num_classes": 1,
+            "bytes": 40360
+          },
+          {
+            "num_classes": 2,
+            "bytes": 80720
+          },
+          {
+            "num_classes": 3,
+            "bytes": 121080
+          },
+          {
+            "num_classes": 4,
+            "bytes": 161440
+          },
+          {
+            "num_classes": 5,
+            "bytes": 201800
+          },
+          {
+            "num_classes": 6,
+            "bytes": 242160
+          },
+          {
+            "num_classes": 7,
+            "bytes": 282520
+          },
+          {
+            "num_classes": 8,
+            "bytes": 322880
+          },
+          {
+            "num_classes": 9,
+            "bytes": 363240
+          },
+          {
+            "num_classes": 10,
+            "bytes": 403600
+          },
+          {
+            "num_classes": 11,
+            "bytes": 443960
+          },
+          {
+            "num_classes": 12,
+            "bytes": 484320
+          },
+          {
+            "num_classes": 13,
+            "bytes": 524680
+          },
+          {
+            "num_classes": 14,
+            "bytes": 565040
+          },
+          {
+            "num_classes": 15,
+            "bytes": 605400
+          },
+          {
+            "num_classes": 16,
+            "bytes": 645760
+          },
+          {
+            "num_classes": 17,
+            "bytes": 686120
+          },
+          {
+            "num_classes": 18,
+            "bytes": 726480
+          },
+          {
+            "num_classes": 19,
+            "bytes": 766840
+          },
+          {
+            "num_classes": 20,
+            "bytes": 807200
+          }
+        ]
+      }
+    }
+  },
+  "architectures": {
+    "hgrn": {
+      "param_count_total": {
+        "metric_id": 1,
+        "category": "device_independent",
+        "unit": "count",
+        "value": 339473
+      },
+      "param_count_by_component": {
+        "metric_id": 2,
+        "category": "device_independent",
+        "unit": "count",
+        "value": {
+          "input_proj": 6528,
+          "layers": 331268,
+          "head": 1677
+        }
+      },
+      "model_size_bytes": {
+        "metric_id": 3,
+        "category": "device_independent",
+        "unit": "bytes",
+        "value": {
+          "fp32": 1357892,
+          "fp16": 678946,
+          "int8": 339473
+        }
+      },
+      "flops_per_timestep_marginal": {
+        "metric_id": 4,
+        "category": "device_independent",
+        "unit": "FLOPs",
+        "value": 668160.0
+      },
+      "flops_per_window": {
+        "metric_id": 5,
+        "category": "device_independent",
+        "unit": "FLOPs",
+        "value": 6684928
+      },
+      "inference_latency_stateless_window_ms": {
+        "metric_id": 8,
+        "category": "device_dependent",
+        "unit": "milliseconds",
+        "value": {
+          "mean_ms": 1.379581523334726,
+          "median_ms": 1.3765364999756002,
+          "p95_ms": 1.4169814499808808,
+          "p99_ms": 1.452510799995821,
+          "std_ms": 0.021158884599219538,
+          "n_repeats": 300
+        }
+      },
+      "inference_latency_streaming_single_timestep_ms": {
+        "metric_id": 9,
+        "category": "device_dependent",
+        "unit": "milliseconds",
+        "value": {
+          "mean_ms": 0.6337082299991911,
+          "median_ms": 0.6376050000085343,
+          "p95_ms": 0.650369999956979,
+          "p99_ms": 0.6609937899980878,
+          "std_ms": 0.012317092979317615,
+          "n_repeats": 300
+        }
+      },
+      "peak_activation_memory_bytes": {
+        "metric_id": 10,
+        "category": "device_dependent",
+        "unit": "bytes",
+        "value": {
+          "bytes": 905773056,
+          "measurement": "whole-process peak RSS high-water mark after this call, NOT isolated to this call (cpu)"
+        }
+      },
+      "herding_selection_wall_time_s": {
+        "metric_id": 11,
+        "category": "device_dependent",
+        "unit": "seconds",
+        "value": {
+          "wall_time_s": 0.0653784319999886,
+          "num_classes": 13,
+          "samples_per_class": 30,
+          "resulting_buffer_size": 260
+        }
+      },
+      "ewc_fisher_computation_wall_time_s": {
+        "metric_id": 15,
+        "category": "device_dependent",
+        "unit": "seconds",
+        "value": {
+          "wall_time_s": 0.25014058699997577,
+          "n_batches": 15,
+          "batch_size": 32,
+          "total_samples": 480
+        }
+      },
+      "training_flops_per_sample_estimate": {
+        "metric_id": 14,
+        "category": "derived_estimate",
+        "unit": "FLOPs",
+        "value": 20054784
+      },
+      "replay_step_overhead_ms": {
+        "metric_id": 12,
+        "category": "device_dependent",
+        "unit": "milliseconds",
+        "value": {
+          "baseline_step_ms": {
+            "mean_ms": 14.414042826666295,
+            "median_ms": 14.395520499988379,
+            "p95_ms": 14.769062050007165,
+            "p99_ms": 15.049988799971175,
+            "std_ms": 0.21229644143324877,
+            "n_repeats": 300
+          },
+          "replay_augmented_step_ms": {
+            "mean_ms": 18.097469563332805,
+            "median_ms": 17.8420249999931,
+            "p95_ms": 20.56265605002352,
+            "p99_ms": 20.91228371002444,
+            "std_ms": 0.7735655479941649,
+            "n_repeats": 300
+          },
+          "overhead_ms_median": 3.446504500004721,
+          "overhead_ratio_median": 1.2394150666526789
+        }
+      },
+      "ewc_step_overhead_ms": {
+        "metric_id": 16,
+        "category": "device_dependent",
+        "unit": "milliseconds",
+        "value": {
+          "baseline_step_ms": {
+            "mean_ms": 14.457333976667426,
+            "median_ms": 14.439795999976468,
+            "p95_ms": 14.81103955000549,
+            "p99_ms": 14.923614899992117,
+            "std_ms": 0.17918039046626977,
+            "n_repeats": 300
+          },
+          "ewc_augmented_step_ms": {
+            "mean_ms": 18.682620893331812,
+            "median_ms": 18.599217499996712,
+            "p95_ms": 19.33640304998505,
+            "p99_ms": 19.713507609960175,
+            "std_ms": 0.3261971380225106,
+            "n_repeats": 300
+          },
+          "overhead_ms_median": 4.159421500020244,
+          "overhead_ratio_median": 1.288052649776148
+        }
+      }
+    },
+    "lstm": {
+      "param_count_total": {
+        "metric_id": 1,
+        "category": "device_independent",
+        "unit": "count",
+        "value": 537613
+      },
+      "param_count_by_component": {
+        "metric_id": 2,
+        "category": "device_independent",
+        "unit": "count",
+        "value": {
+          "input_proj": 6528,
+          "layers": 529408,
+          "head": 1677
+        }
+      },
+      "model_size_bytes": {
+        "metric_id": 3,
+        "category": "device_independent",
+        "unit": "bytes",
+        "value": {
+          "fp32": 2150452,
+          "fp16": 1075226,
+          "int8": 537613
+        }
+      },
+      "flops_per_timestep_marginal": {
+        "metric_id": 4,
+        "category": "device_independent",
+        "unit": "FLOPs",
+        "value": 1061376.0
+      },
+      "flops_per_window": {
+        "metric_id": 5,
+        "category": "device_independent",
+        "unit": "FLOPs",
+        "value": 10617088
+      },
+      "inference_latency_stateless_window_ms": {
+        "metric_id": 8,
+        "category": "device_dependent",
+        "unit": "milliseconds",
+        "value": {
+          "mean_ms": 1.080969243333243,
+          "median_ms": 1.081730000009884,
+          "p95_ms": 1.112031549999415,
+          "p99_ms": 1.1316621100195332,
+          "std_ms": 0.01956211799238827,
+          "n_repeats": 300
+        }
+      },
+      "inference_latency_streaming_single_timestep_ms": {
+        "metric_id": 9,
+        "category": "device_dependent",
+        "unit": "milliseconds",
+        "value": {
+          "mean_ms": 0.8274963699991152,
+          "median_ms": 0.8273139999914747,
+          "p95_ms": 0.8511625500261744,
+          "p99_ms": 0.8666671999634444,
+          "std_ms": 0.016336788968316432,
+          "n_repeats": 300
+        }
+      },
+      "peak_activation_memory_bytes": {
+        "metric_id": 10,
+        "category": "device_dependent",
+        "unit": "bytes",
+        "value": {
+          "bytes": 933433344,
+          "measurement": "whole-process peak RSS high-water mark after this call, NOT isolated to this call (cpu)"
+        }
+      },
+      "herding_selection_wall_time_s": {
+        "metric_id": 11,
+        "category": "device_dependent",
+        "unit": "seconds",
+        "value": {
+          "wall_time_s": 0.06821750800003201,
+          "num_classes": 13,
+          "samples_per_class": 30,
+          "resulting_buffer_size": 260
+        }
+      },
+      "ewc_fisher_computation_wall_time_s": {
+        "metric_id": 15,
+        "category": "device_dependent",
+        "unit": "seconds",
+        "value": {
+          "wall_time_s": 0.26315277600002673,
+          "n_batches": 15,
+          "batch_size": 32,
+          "total_samples": 480
+        }
+      },
+      "training_flops_per_sample_estimate": {
+        "metric_id": 14,
+        "category": "derived_estimate",
+        "unit": "FLOPs",
+        "value": 31851264
+      },
+      "replay_step_overhead_ms": {
+        "metric_id": 12,
+        "category": "device_dependent",
+        "unit": "milliseconds",
+        "value": {
+          "baseline_step_ms": {
+            "mean_ms": 15.62398421000239,
+            "median_ms": 16.040218499995262,
+            "p95_ms": 17.203745549997507,
+            "p99_ms": 17.51140670999689,
+            "std_ms": 1.2402687834042425,
+            "n_repeats": 300
+          },
+          "replay_augmented_step_ms": {
+            "mean_ms": 21.834887860001118,
+            "median_ms": 21.878557999997383,
+            "p95_ms": 22.654075499985993,
+            "p99_ms": 23.021246410000344,
+            "std_ms": 0.48071269570561215,
+            "n_repeats": 300
+          },
+          "overhead_ms_median": 5.838339500002121,
+          "overhead_ratio_median": 1.3639812948934484
+        }
+      },
+      "ewc_step_overhead_ms": {
+        "metric_id": 16,
+        "category": "device_dependent",
+        "unit": "milliseconds",
+        "value": {
+          "baseline_step_ms": {
+            "mean_ms": 16.30104235666655,
+            "median_ms": 16.855932999988,
+            "p95_ms": 17.763167549986747,
+            "p99_ms": 18.23059852000256,
+            "std_ms": 1.3185007706984153,
+            "n_repeats": 300
+          },
+          "ewc_augmented_step_ms": {
+            "mean_ms": 20.512350779997252,
+            "median_ms": 20.811158999975987,
+            "p95_ms": 21.14615200000287,
+            "p99_ms": 21.414371449970414,
+            "std_ms": 1.0799211252872256,
+            "n_repeats": 300
+          },
+          "overhead_ms_median": 3.955225999987988,
+          "overhead_ratio_median": 1.234648891876279
+        }
+      }
+    }
+  }
+}
