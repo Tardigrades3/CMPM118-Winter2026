@@ -494,9 +494,9 @@ def print_summary(report):
     print("\n" + "=" * 78)
     print("COMPUTE PROFILE SUMMARY  (see METRIC_CATALOG / metric_legend for full definitions)")
     print("=" * 78)
-    print(f"Device: {report['device_info']['requested_device']}  "
-          f"({report['device_info']['processor']}, "
-          f"cuda_available={report['device_info']['cuda_available']})")
+    di = report['device_info']['value']
+    print(f"Device: {di['requested_device']}  "
+          f"({di['processor']}, cuda_available={di['cuda_available']})")
     bm = report["replay_buffer_memory"]
     print(f"\n[6] replay buffer (Simple, cap={bm['replay_buffer_bytes_simple']['value']['capacity']}): "
           f"{bm['replay_buffer_bytes_simple']['value']['total_bytes'] / 1e6:.2f} MB")
