@@ -5,16 +5,24 @@ Runs on synthetic, shape-matched tensors (no NinaPro dataset needed), so it can
 run identically on a laptop or on the EC2 box. Hyperparameter defaults mirror
 hgrn/train.py's CLI defaults so numbers are directly comparable to real runs.
 
-Every quantity this script records is numbered 1-14 and described in
+Every quantity this script records is numbered 1-16 and described in
 METRIC_CATALOG below. The same numbering is written into the output JSON
 (`metric_legend`) and stamped onto every value (`metric_id`), so the JSON is
 self-documenting without needing to read this file.
 
 Metrics 1-7 are device-independent (analytic: parameter/tensor-shape counts,
-same value on any machine). Metrics 8-12 are device-dependent (measured wall
-clock / memory on whatever machine runs the script; always read them next to
-metric 13, the device_info block, which records what hardware produced them).
-Metric 14 is a derived heuristic estimate, not a direct measurement.
+same value on any machine). Metrics 8-12 and 15-16 are device-dependent
+(measured wall clock / memory on whatever machine runs the script; always
+read them next to metric 13, the device_info block, which records what
+hardware produced them). Metric 14 is a derived heuristic estimate, not a
+direct measurement.
+
+Metrics 15-16 cover EWC (Elastic Weight Consolidation), mirroring 11-12's
+coverage of replay: 15 times the one-time Fisher-information computation at
+a task boundary (hgrn/training.py's compute_fisher, called for real, not
+reimplemented), 16 times the added cost of the EWC quadratic penalty term on
+a normal training step. Both are absent from the model/replay comparison
+above because EWC never appears in that part of the pipeline.
 
 Usage:
     python analysis/profile_compute.py --arch both --device auto
@@ -41,6 +49,7 @@ if _PROJECT_ROOT not in sys.path:
 from hgrn.model import HGRNModel, _HAS_FLA
 from models.lstm import LSTMModel
 from hgrn.buffers import HerdingBuffer
+from hgrn.training import compute_fisher
 
 _ARCH_REGISTRY = {
     'hgrn': HGRNModel,
@@ -118,6 +127,28 @@ METRIC_CATALOG = [
      "~=2x heuristic for total training compute per sample. This is an "
      "approximation, not a profiler measurement -- backward-pass FLOPs are not "
      "counted directly by the hook counter."),
+    (15, "ewc_fisher_computation_wall_time_s", "device_dependent", "seconds",
+     "Wall-clock time for hgrn/training.py's compute_fisher to run once over a "
+     "synthetic task's worth of training data: one forward + backward pass per "
+     "batch (against the model's own predicted class, not the true label, per "
+     "the real implementation), accumulating squared gradients into the Fisher "
+     "dict. Called for real via the actual compute_fisher function, not "
+     "reimplemented. Run with stateless=True, matching the paper's stated "
+     "config ('Fisher is computed in stateless mode to remain consistent with "
+     "the inference regime'). This is the EWC analog of metric 11 (herding "
+     "selection) -- a one-time cost paid once per task boundary, not per "
+     "training step."),
+    (16, "ewc_step_overhead_ms", "device_dependent", "milliseconds",
+     "Extra wall-clock time one training step costs when the EWC quadratic "
+     "penalty term (lambda_ewc * sum_i F_i * (theta_i - theta_i*)^2, evaluated "
+     "over every named parameter) is added to the loss before backward, vs a "
+     "penalty-free baseline step -- both include the same gradient-norm "
+     "clipping (max_norm=1.0) used in every real training function in "
+     "hgrn/training.py. This is the EWC analog of metric 12 (replay-step "
+     "overhead). Fisher/anchor-weight values used here are synthetic "
+     "(random, matching real tensor shapes), since the penalty's compute cost "
+     "does not depend on the specific Fisher values, only on doing the "
+     "per-parameter elementwise op over every parameter tensor."),
 ]
 METRIC_BY_KEY = {m[1]: m for m in METRIC_CATALOG}
 
@@ -374,6 +405,7 @@ def measure_replay_step_overhead(model, args, device):
         optimizer.zero_grad()
         logits, _ = model(x)
         criterion(logits, y).backward()
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
     def replay_step():
@@ -383,6 +415,7 @@ def measure_replay_step_overhead(model, args, device):
         optimizer.zero_grad()
         logits, _ = model(x_all)
         criterion(logits, y_all).backward()
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
     base = measure_latency_ms(base_step, args.n_warmup, args.n_repeats, device)
@@ -392,6 +425,84 @@ def measure_replay_step_overhead(model, args, device):
         "replay_augmented_step_ms": replay,
         "overhead_ms_median": replay["median_ms"] - base["median_ms"],
         "overhead_ratio_median": (replay["median_ms"] / base["median_ms"]) if base["median_ms"] > 0 else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Metric 15: EWC Fisher-information computation cost
+# ---------------------------------------------------------------------------
+
+def measure_ewc_fisher_computation(model, args, device):
+    n_batches = max(1, args.ewc_fisher_dataset_size // args.batch_size)
+    loader = []
+    for _ in range(n_batches):
+        x = torch.randn(args.batch_size, args.seq_len, args.in_channels)
+        y = torch.randint(0, args.num_classes, (args.batch_size,))
+        m = torch.ones(args.batch_size, args.seq_len, dtype=torch.bool)
+        loader.append((x, y, m))
+
+    t0 = time.perf_counter()
+    compute_fisher(model, loader, device, stateless=True)
+    if device.type == 'cuda':
+        torch.cuda.synchronize()
+    wall_time_s = time.perf_counter() - t0
+    return {
+        "wall_time_s": wall_time_s,
+        "n_batches": n_batches,
+        "batch_size": args.batch_size,
+        "total_samples": n_batches * args.batch_size,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Metric 16: EWC-step training overhead
+# ---------------------------------------------------------------------------
+
+def measure_ewc_step_overhead(model, args, device):
+    model.train()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=1e-4)
+
+    # Synthetic Fisher/anchor values: the penalty's compute cost depends on
+    # doing the elementwise op over every parameter tensor, not on the
+    # specific values, so real (trained) Fisher weights aren't needed here.
+    optpar_dict = {name: param.data.clone() for name, param in model.named_parameters()}
+    fisher_dict = {name: torch.rand_like(param.data) for name, param in model.named_parameters()}
+
+    def make_batch():
+        x = torch.randn(args.batch_size, args.seq_len, args.in_channels, device=device)
+        y = torch.randint(0, args.num_classes, (args.batch_size,), device=device)
+        return x, y
+
+    def base_step():
+        x, y = make_batch()
+        optimizer.zero_grad()
+        logits, _ = model(x)
+        criterion(logits, y).backward()
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+
+    def ewc_step():
+        x, y = make_batch()
+        optimizer.zero_grad()
+        logits, _ = model(x)
+        loss = criterion(logits, y)
+        ewc_loss = 0.0
+        for name, param in model.named_parameters():
+            if name in fisher_dict:
+                ewc_loss = ewc_loss + (fisher_dict[name] * (param - optpar_dict[name]).pow(2)).sum()
+        loss = loss + args.ewc_lambda * ewc_loss
+        loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+
+    base = measure_latency_ms(base_step, args.n_warmup, args.n_repeats, device)
+    ewc = measure_latency_ms(ewc_step, args.n_warmup, args.n_repeats, device)
+    return {
+        "baseline_step_ms": base,
+        "ewc_augmented_step_ms": ewc,
+        "overhead_ms_median": ewc["median_ms"] - base["median_ms"],
+        "overhead_ratio_median": (ewc["median_ms"] / base["median_ms"]) if base["median_ms"] > 0 else None,
     }
 
 
@@ -443,12 +554,16 @@ def profile_one_arch(arch, args, device):
             "peak_activation_memory_bytes", measure_peak_activation_memory(model, args, device)),
         "herding_selection_wall_time_s": _tag(
             "herding_selection_wall_time_s", measure_herding_selection(model, args, device)),
+        "ewc_fisher_computation_wall_time_s": _tag(
+            "ewc_fisher_computation_wall_time_s", measure_ewc_fisher_computation(model, args, device)),
         "training_flops_per_sample_estimate": _tag(
             "training_flops_per_sample_estimate", flops_window * 3),
     }
-    # Last: mutates model weights via real SGD steps, so it runs after everything else.
+    # Last: mutate model weights via real optimizer steps, so run after everything else.
     result["replay_step_overhead_ms"] = _tag(
         "replay_step_overhead_ms", measure_replay_step_overhead(model, args, device))
+    result["ewc_step_overhead_ms"] = _tag(
+        "ewc_step_overhead_ms", measure_ewc_step_overhead(model, args, device))
     return result
 
 
@@ -480,8 +595,14 @@ def build_arg_parser():
     p.add_argument('--max_cil_classes', type=int, default=20,
                     help="Upper bound of the herding-buffer growth curve (metric 7).")
 
-    # Training-step overhead config (metric 12).
+    # Training-step overhead config (metric 12, 16).
     p.add_argument('--batch_size', type=int, default=32, help="Matches hgrn/train.py default.")
+
+    # EWC config (metrics 15, 16) -- defaults match hgrn/train.py.
+    p.add_argument('--ewc_lambda', type=float, default=2000.0)
+    p.add_argument('--ewc_fisher_dataset_size', type=int, default=480,
+                    help="Synthetic total samples fed to compute_fisher for timing metric 15 "
+                         "(split into batches of --batch_size).")
 
     # Measurement config.
     p.add_argument('--n_warmup', type=int, default=10)
@@ -521,6 +642,11 @@ def print_summary(report):
         print(f"[12] replay step overhead: +{rs['overhead_ms_median']:.3f} ms "
               f"(x{rs['overhead_ratio_median']:.2f})")
         print(f"[14] training FLOPs/sample (est.): {m['training_flops_per_sample_estimate']['value']:,.0f}")
+        print(f"[15] EWC Fisher computation: "
+              f"{m['ewc_fisher_computation_wall_time_s']['value']['wall_time_s']:.3f} s")
+        es = m['ewc_step_overhead_ms']['value']
+        print(f"[16] EWC step overhead: +{es['overhead_ms_median']:.3f} ms "
+              f"(x{es['overhead_ratio_median']:.2f})")
     print("=" * 78 + "\n")
 
 
