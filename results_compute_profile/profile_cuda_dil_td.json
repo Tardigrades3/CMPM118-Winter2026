@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T23:44:21.446428",
+  "generated_at": "2026-08-21T00:17:21.820833",
   "config": {
     "arch": "both",
     "device": "cuda",
@@ -20,7 +20,7 @@
     "n_warmup": 10,
     "n_repeats": 300,
     "seed": 42,
-    "output": "results_compute_profile/profile_cuda_dil_td.json"
+    "output": "results_compute_profile/profile_cuda_dil_td.json~"
   },
   "metric_legend": {
     "1": {
@@ -69,13 +69,13 @@
       "key": "inference_latency_stateless_window_ms",
       "category": "device_dependent",
       "unit": "milliseconds",
-      "description": "Wall-clock latency of one full-window forward pass (batch=1, eval mode, no_grad), mean/median/p95/p99/std over --n_repeats after --n_warmup warmup calls. torch.cuda.synchronize() brackets each call when on GPU."
+      "description": "Wall-clock latency of one full-window forward pass (batch=1, eval mode, no_grad), mean/median/p95/p99/std over --n_repeats after --n_warmup warmup calls. torch.cuda.synchronize() brackets each call when on GPU. Each call uses a distinct, independently-sampled random window, pre-allocated before timing starts so RNG/allocation cost never leaks into the measured time -- avoids any artifact from repeatedly reading one cached input tensor."
     },
     "9": {
       "key": "inference_latency_streaming_single_timestep_ms",
       "category": "device_dependent",
       "unit": "milliseconds",
-      "description": "Wall-clock latency of one incremental single-EMG-sample forward pass (T=1), with recurrent state carried from the previous call. This is a real-time streaming/on-device deployment pattern (classify as each new sample arrives) and is DISTINCT from this repo's 'stateful' training/eval mode, which carries state window-to-window (T=seq_len per call), never timestep-to-timestep -- see AGENT_HANDOFF.md section 3 on not conflating state-handling axes. Same statistics as metric 8."
+      "description": "Wall-clock latency of one incremental single-EMG-sample forward pass (T=1), with recurrent state carried from the previous call. This is a real-time streaming/on-device deployment pattern (classify as each new sample arrives) and is DISTINCT from this repo's 'stateful' training/eval mode, which carries state window-to-window (T=seq_len per call), never timestep-to-timestep -- see AGENT_HANDOFF.md section 3 on not conflating state-handling axes. Same statistics as metric 8, and the same distinct-pre-allocated-input-per-call approach (recurrent state is still carried across calls as normal; only the new-sample input changes)."
     },
     "10": {
       "key": "peak_activation_memory_bytes",
@@ -287,11 +287,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 1.9992457500004928,
-          "median_ms": 2.001215999996475,
-          "p95_ms": 2.030968950035117,
-          "p99_ms": 2.0479605000019774,
-          "std_ms": 0.024786645639366132,
+          "mean_ms": 2.0167005566736407,
+          "median_ms": 2.01895100008187,
+          "p95_ms": 2.047717499931423,
+          "p99_ms": 2.1328033102508925,
+          "std_ms": 0.032326158346755084,
           "n_repeats": 300
         }
       },
@@ -300,11 +300,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 1.988459953331206,
-          "median_ms": 2.0009360000017296,
-          "p95_ms": 2.026921499970058,
-          "p99_ms": 2.0708086100285072,
-          "std_ms": 0.03775407982028798,
+          "mean_ms": 1.9843969200019274,
+          "median_ms": 1.999211000111245,
+          "p95_ms": 2.024350999749913,
+          "p99_ms": 2.05021669998132,
+          "std_ms": 0.0396621445705982,
           "n_repeats": 300
         }
       },
@@ -322,7 +322,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.06115600399999721,
+          "wall_time_s": 0.061391667999942,
           "num_classes": 13,
           "samples_per_class": 30,
           "resulting_buffer_size": 260
@@ -333,7 +333,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.39354162899996936,
+          "wall_time_s": 0.39458783899999617,
           "n_batches": 15,
           "batch_size": 32,
           "total_samples": 480
@@ -351,23 +351,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 7.363563119999412,
-            "median_ms": 7.334633499965548,
-            "p95_ms": 7.558128549968046,
-            "p99_ms": 7.8409854099658105,
-            "std_ms": 0.11413102548212942,
+            "mean_ms": 7.380285479998747,
+            "median_ms": 7.348582500071643,
+            "p95_ms": 7.606715999895641,
+            "p99_ms": 7.815437720159934,
+            "std_ms": 0.11769251340740697,
             "n_repeats": 300
           },
           "replay_augmented_step_ms": {
-            "mean_ms": 7.416064663333373,
-            "median_ms": 7.380369499998096,
-            "p95_ms": 7.610072999963791,
-            "p99_ms": 7.833609109998179,
-            "std_ms": 0.10650782195266266,
+            "mean_ms": 7.437476973310974,
+            "median_ms": 7.410853999772371,
+            "p95_ms": 7.596908000232361,
+            "p99_ms": 7.9571389198372335,
+            "std_ms": 0.11342217380158147,
             "n_repeats": 300
           },
-          "overhead_ms_median": 0.04573600003254796,
-          "overhead_ratio_median": 1.006235621729806
+          "overhead_ms_median": 0.06227149970072787,
+          "overhead_ratio_median": 1.0084739471456055
         }
       },
       "ewc_step_overhead_ms": {
@@ -376,23 +376,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 7.3424446799994785,
-            "median_ms": 7.318093000009185,
-            "p95_ms": 7.546767500031137,
-            "p99_ms": 7.760328999992225,
-            "std_ms": 0.10582597497360922,
+            "mean_ms": 7.377965663343578,
+            "median_ms": 7.339996999917275,
+            "p95_ms": 7.6349640001581065,
+            "p99_ms": 7.870577990256606,
+            "std_ms": 0.11688936811848932,
             "n_repeats": 300
           },
           "ewc_augmented_step_ms": {
-            "mean_ms": 15.626350356666116,
-            "median_ms": 15.575803000018595,
-            "p95_ms": 16.070655999996575,
-            "p99_ms": 16.467580600004794,
-            "std_ms": 0.21232913526833636,
+            "mean_ms": 15.571995666682596,
+            "median_ms": 15.505564000022787,
+            "p95_ms": 15.998055549994206,
+            "p99_ms": 16.587482900126815,
+            "std_ms": 0.21983162622403518,
             "n_repeats": 300
           },
-          "overhead_ms_median": 8.25771000000941,
-          "overhead_ratio_median": 2.128396427867075
+          "overhead_ms_median": 8.165567000105511,
+          "overhead_ratio_median": 2.112475522837072
         }
       }
     },
@@ -440,11 +440,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 0.8469865600018996,
-          "median_ms": 0.8491340000205128,
-          "p95_ms": 0.8682869999574905,
-          "p99_ms": 0.8789185000398447,
-          "std_ms": 0.017607656465045952,
+          "mean_ms": 0.8154958700030571,
+          "median_ms": 0.815752999869801,
+          "p95_ms": 0.8324060000404643,
+          "p99_ms": 0.85908538993408,
+          "std_ms": 0.012594491986429817,
           "n_repeats": 300
         }
       },
@@ -453,11 +453,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 0.7429092633329523,
-          "median_ms": 0.7438270000079683,
-          "p95_ms": 0.7642749500035961,
-          "p99_ms": 0.7777545000271856,
-          "std_ms": 0.01433429966272249,
+          "mean_ms": 0.7212412400031099,
+          "median_ms": 0.7198065002285148,
+          "p95_ms": 0.7521059997998236,
+          "p99_ms": 0.7637911000801978,
+          "std_ms": 0.01900089393430578,
           "n_repeats": 300
         }
       },
@@ -475,7 +475,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.03310350100002779,
+          "wall_time_s": 0.03275682599996799,
           "num_classes": 13,
           "samples_per_class": 30,
           "resulting_buffer_size": 260
@@ -486,7 +486,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.1015133730000457,
+          "wall_time_s": 0.10124346599968703,
           "n_batches": 15,
           "batch_size": 32,
           "total_samples": 480
@@ -504,23 +504,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 4.495123023332137,
-            "median_ms": 4.484668000003467,
-            "p95_ms": 4.622101449953675,
-            "p99_ms": 4.712742000000958,
-            "std_ms": 0.0705125284561136,
+            "mean_ms": 4.45000239000971,
+            "median_ms": 4.434291000052326,
+            "p95_ms": 4.566222500261574,
+            "p99_ms": 4.758542520080481,
+            "std_ms": 0.07710737574649751,
             "n_repeats": 300
           },
           "replay_augmented_step_ms": {
-            "mean_ms": 4.55562066000103,
-            "median_ms": 4.542119500001718,
-            "p95_ms": 4.678491000021268,
-            "p99_ms": 4.888650500002996,
-            "std_ms": 0.08563102875215493,
+            "mean_ms": 4.504311076643717,
+            "median_ms": 4.489232499963691,
+            "p95_ms": 4.592476500170051,
+            "p99_ms": 4.790764019744528,
+            "std_ms": 0.06940081130270653,
             "n_repeats": 300
           },
-          "overhead_ms_median": 0.057451499998251165,
-          "overhead_ratio_median": 1.0128106472983522
+          "overhead_ms_median": 0.0549414999113651,
+          "overhead_ratio_median": 1.0123901430715117
         }
       },
       "ewc_step_overhead_ms": {
@@ -529,23 +529,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 4.474384970000074,
-            "median_ms": 4.469127999954026,
-            "p95_ms": 4.549068050002347,
-            "p99_ms": 4.6774735000002465,
-            "std_ms": 0.060455802804257434,
+            "mean_ms": 4.462241009997949,
+            "median_ms": 4.44964100006473,
+            "p95_ms": 4.580732550039102,
+            "p99_ms": 4.711902600042777,
+            "std_ms": 0.06739267874703753,
             "n_repeats": 300
           },
           "ewc_augmented_step_ms": {
-            "mean_ms": 8.689737519998554,
-            "median_ms": 8.651899000000185,
-            "p95_ms": 8.911561550004876,
-            "p99_ms": 9.134318219951751,
-            "std_ms": 0.12574388262498395,
+            "mean_ms": 8.628388843332383,
+            "median_ms": 8.590801000082138,
+            "p95_ms": 8.918094500040752,
+            "p99_ms": 9.168519809991267,
+            "std_ms": 0.1248011932236121,
             "n_repeats": 300
           },
-          "overhead_ms_median": 4.182771000046159,
-          "overhead_ratio_median": 1.9359255318015478
+          "overhead_ms_median": 4.141160000017408,
+          "overhead_ratio_median": 1.9306728340459747
         }
       }
     }
