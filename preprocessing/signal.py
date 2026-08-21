@@ -152,10 +152,18 @@ def preprocessing(path, features='raw', n_subwindows=10):
     return preprocessing_internals(data, features=features, n_subwindows=n_subwindows)
 
 def preprocessing_internals(data, features='raw', n_subwindows=10):
-    emg_low = filter_data(data=data, f=[20, 450], butterworth_order=4, btype='bandpass')
-
-    emg_notch = notch_filter(data=emg_low,f0=60,Q=30,fs=2000)
-
+    # NinaPro DB1's `emg` field is not raw broadband sEMG: the Otto Bock
+    # MyoBock 13E200-50 electrodes used for DB1 output an already amplified,
+    # bandpass-filtered, and RMS-rectified envelope signal at 100 Hz
+    # (effective bandwidth ~0-25 Hz; confirmed empirically here too -- every
+    # sample across all channels is non-negative, the signature of
+    # rectification, and power is concentrated in 2-20 Hz). The 20-450 Hz
+    # bandpass + 60 Hz notch previously applied here assumed raw broadband
+    # EMG at a 2000 Hz sampling rate (correct for DB2/DB3's Delsys Trigno
+    # recordings, not DB1) and is not applicable to this signal -- 60 Hz and
+    # 450 Hz both exceed DB1's true 50 Hz Nyquist frequency. Filtering
+    # dropped rather than re-parameterized for the same reason: the hardware
+    # has already done the relevant bandpass filtering and rectification.
     gestures = data['stimulus'].unique().tolist()
     train_reps, test_reps = train_test_split(
         data['repetition'].unique().tolist(),
@@ -164,7 +172,7 @@ def preprocessing_internals(data, features='raw', n_subwindows=10):
         shuffle=True
     )
 
-    emg_norm = normalise(data = emg_notch, train_reps=train_reps)
+    emg_norm = normalise(data=data, train_reps=train_reps)
 
     win_len = 200
     win_stride = 50
