@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-21T00:18:52.512525",
+  "generated_at": "2026-08-21T00:17:21.820833",
   "config": {
     "arch": "both",
-    "device": "cpu",
+    "device": "cuda",
     "in_channels": 50,
     "d_model": 128,
     "num_layers": 4,
@@ -20,7 +20,7 @@
     "n_warmup": 10,
     "n_repeats": 300,
     "seed": 42,
-    "output": "results_compute_profile/profile_cpu_dil_td.json"
+    "output": "results_compute_profile/profile_cuda_dil_td.json~"
   },
   "metric_legend": {
     "1": {
@@ -129,11 +129,12 @@
       "platform": "Linux-6.17.0-1017-aws-x86_64-with-glibc2.39",
       "processor": "x86_64",
       "cpu_count": 4,
-      "requested_device": "cpu",
+      "requested_device": "cuda",
       "cuda_available": true,
       "fla_triton_available": true,
-      "fla_triton_kernel_active_for_hgrn": false,
-      "cuda_device_count": 1
+      "fla_triton_kernel_active_for_hgrn": true,
+      "cuda_device_count": 1,
+      "cuda_device_name": "NVIDIA A10G"
     }
   },
   "replay_buffer_memory": {
@@ -286,11 +287,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 1.5923179566804417,
-          "median_ms": 1.5930420001950552,
-          "p95_ms": 1.6192705001230934,
-          "p99_ms": 1.6365579999092006,
-          "std_ms": 0.0181016375282588,
+          "mean_ms": 2.0167005566736407,
+          "median_ms": 2.01895100008187,
+          "p95_ms": 2.047717499931423,
+          "p99_ms": 2.1328033102508925,
+          "std_ms": 0.032326158346755084,
           "n_repeats": 300
         }
       },
@@ -299,11 +300,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 0.630062223326604,
-          "median_ms": 0.6311244999324117,
-          "p95_ms": 0.6635269998241711,
-          "p99_ms": 0.6712141001753479,
-          "std_ms": 0.015549491247763805,
+          "mean_ms": 1.9843969200019274,
+          "median_ms": 1.999211000111245,
+          "p95_ms": 2.024350999749913,
+          "p99_ms": 2.05021669998132,
+          "std_ms": 0.0396621445705982,
           "n_repeats": 300
         }
       },
@@ -312,8 +313,8 @@
         "category": "device_dependent",
         "unit": "bytes",
         "value": {
-          "bytes": 906960896,
-          "measurement": "whole-process peak RSS high-water mark after this call, NOT isolated to this call (cpu)"
+          "bytes": 11004928,
+          "measurement": "exact, isolated to this call (cuda)"
         }
       },
       "herding_selection_wall_time_s": {
@@ -321,7 +322,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.08189713299998402,
+          "wall_time_s": 0.061391667999942,
           "num_classes": 13,
           "samples_per_class": 30,
           "resulting_buffer_size": 260
@@ -332,7 +333,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.2952863040000011,
+          "wall_time_s": 0.39458783899999617,
           "n_batches": 15,
           "batch_size": 32,
           "total_samples": 480
@@ -350,23 +351,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 19.028455526660462,
-            "median_ms": 18.98295900014091,
-            "p95_ms": 19.55326604977472,
-            "p99_ms": 19.703970309828946,
-            "std_ms": 0.24716369275823552,
+            "mean_ms": 7.380285479998747,
+            "median_ms": 7.348582500071643,
+            "p95_ms": 7.606715999895641,
+            "p99_ms": 7.815437720159934,
+            "std_ms": 0.11769251340740697,
             "n_repeats": 300
           },
           "replay_augmented_step_ms": {
-            "mean_ms": 26.06680584999746,
-            "median_ms": 24.920257000303536,
-            "p95_ms": 28.430941000374332,
-            "p99_ms": 28.91185300995403,
-            "std_ms": 1.767251412899027,
+            "mean_ms": 7.437476973310974,
+            "median_ms": 7.410853999772371,
+            "p95_ms": 7.596908000232361,
+            "p99_ms": 7.9571389198372335,
+            "std_ms": 0.11342217380158147,
             "n_repeats": 300
           },
-          "overhead_ms_median": 5.937298000162627,
-          "overhead_ratio_median": 1.3127698900955618
+          "overhead_ms_median": 0.06227149970072787,
+          "overhead_ratio_median": 1.0084739471456055
         }
       },
       "ewc_step_overhead_ms": {
@@ -375,23 +376,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 19.03536141667094,
-            "median_ms": 19.01918599992314,
-            "p95_ms": 19.476814049653512,
-            "p99_ms": 19.80763051023132,
-            "std_ms": 0.24720020324530426,
+            "mean_ms": 7.377965663343578,
+            "median_ms": 7.339996999917275,
+            "p95_ms": 7.6349640001581065,
+            "p99_ms": 7.870577990256606,
+            "std_ms": 0.11688936811848932,
             "n_repeats": 300
           },
           "ewc_augmented_step_ms": {
-            "mean_ms": 23.950568579969815,
-            "median_ms": 23.90397999988636,
-            "p95_ms": 24.542326399955527,
-            "p99_ms": 24.76074832973609,
-            "std_ms": 0.2852947547334298,
+            "mean_ms": 15.571995666682596,
+            "median_ms": 15.505564000022787,
+            "p95_ms": 15.998055549994206,
+            "p99_ms": 16.587482900126815,
+            "std_ms": 0.21983162622403518,
             "n_repeats": 300
           },
-          "overhead_ms_median": 4.884793999963222,
-          "overhead_ratio_median": 1.2568350716998595
+          "overhead_ms_median": 8.165567000105511,
+          "overhead_ratio_median": 2.112475522837072
         }
       }
     },
@@ -439,11 +440,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 1.321438343331162,
-          "median_ms": 1.3203305002207344,
-          "p95_ms": 1.348144000121465,
-          "p99_ms": 1.3579282003274784,
-          "std_ms": 0.015318486807659933,
+          "mean_ms": 0.8154958700030571,
+          "median_ms": 0.815752999869801,
+          "p95_ms": 0.8324060000404643,
+          "p99_ms": 0.85908538993408,
+          "std_ms": 0.012594491986429817,
           "n_repeats": 300
         }
       },
@@ -452,11 +453,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 0.991502976683781,
-          "median_ms": 0.9897630000068602,
-          "p95_ms": 1.0079115002554317,
-          "p99_ms": 1.0180482003715952,
-          "std_ms": 0.011840138943872331,
+          "mean_ms": 0.7212412400031099,
+          "median_ms": 0.7198065002285148,
+          "p95_ms": 0.7521059997998236,
+          "p99_ms": 0.7637911000801978,
+          "std_ms": 0.01900089393430578,
           "n_repeats": 300
         }
       },
@@ -465,8 +466,8 @@
         "category": "device_dependent",
         "unit": "bytes",
         "value": {
-          "bytes": 936697856,
-          "measurement": "whole-process peak RSS high-water mark after this call, NOT isolated to this call (cpu)"
+          "bytes": 29286400,
+          "measurement": "exact, isolated to this call (cuda)"
         }
       },
       "herding_selection_wall_time_s": {
@@ -474,7 +475,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.10136194300002899,
+          "wall_time_s": 0.03275682599996799,
           "num_classes": 13,
           "samples_per_class": 30,
           "resulting_buffer_size": 260
@@ -485,7 +486,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.3540790400002152,
+          "wall_time_s": 0.10124346599968703,
           "n_batches": 15,
           "batch_size": 32,
           "total_samples": 480
@@ -503,23 +504,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 21.67128659334291,
-            "median_ms": 21.60561200025768,
-            "p95_ms": 22.32181949993901,
-            "p99_ms": 22.67764670041288,
-            "std_ms": 0.28265342864910475,
+            "mean_ms": 4.45000239000971,
+            "median_ms": 4.434291000052326,
+            "p95_ms": 4.566222500261574,
+            "p99_ms": 4.758542520080481,
+            "std_ms": 0.07710737574649751,
             "n_repeats": 300
           },
           "replay_augmented_step_ms": {
-            "mean_ms": 30.52927706333776,
-            "median_ms": 30.29026299986981,
-            "p95_ms": 31.898114099954,
-            "p99_ms": 32.599416510106494,
-            "std_ms": 0.8195399156750447,
+            "mean_ms": 4.504311076643717,
+            "median_ms": 4.489232499963691,
+            "p95_ms": 4.592476500170051,
+            "p99_ms": 4.790764019744528,
+            "std_ms": 0.06940081130270653,
             "n_repeats": 300
           },
-          "overhead_ms_median": 8.684650999612131,
-          "overhead_ratio_median": 1.4019627400283108
+          "overhead_ms_median": 0.0549414999113651,
+          "overhead_ratio_median": 1.0123901430715117
         }
       },
       "ewc_step_overhead_ms": {
@@ -528,23 +529,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 21.68166869668312,
-            "median_ms": 21.603559499908442,
-            "p95_ms": 22.43242154991094,
-            "p99_ms": 22.915729330084105,
-            "std_ms": 0.33269148825687855,
+            "mean_ms": 4.462241009997949,
+            "median_ms": 4.44964100006473,
+            "p95_ms": 4.580732550039102,
+            "p99_ms": 4.711902600042777,
+            "std_ms": 0.06739267874703753,
             "n_repeats": 300
           },
           "ewc_augmented_step_ms": {
-            "mean_ms": 25.45011209999605,
-            "median_ms": 25.270484999964538,
-            "p95_ms": 26.3358834499968,
-            "p99_ms": 26.775646239889284,
-            "std_ms": 0.44240568373537154,
+            "mean_ms": 8.628388843332383,
+            "median_ms": 8.590801000082138,
+            "p95_ms": 8.918094500040752,
+            "p99_ms": 9.168519809991267,
+            "std_ms": 0.1248011932236121,
             "n_repeats": 300
           },
-          "overhead_ms_median": 3.666925500056095,
-          "overhead_ratio_median": 1.1697370981884554
+          "overhead_ms_median": 4.141160000017408,
+          "overhead_ratio_median": 1.9306728340459747
         }
       }
     }
