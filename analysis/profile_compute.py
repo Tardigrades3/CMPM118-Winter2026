@@ -5,24 +5,30 @@ Runs on synthetic, shape-matched tensors (no NinaPro dataset needed), so it can
 run identically on a laptop or on the EC2 box. Hyperparameter defaults mirror
 hgrn/train.py's CLI defaults so numbers are directly comparable to real runs.
 
-Every quantity this script records is numbered 1-16 and described in
+Every quantity this script records is numbered 1-17 and described in
 METRIC_CATALOG below. The same numbering is written into the output JSON
 (`metric_legend`) and stamped onto every value (`metric_id`), so the JSON is
 self-documenting without needing to read this file.
 
 Metrics 1-7 are device-independent (analytic: parameter/tensor-shape counts,
-same value on any machine). Metrics 8-12 and 15-16 are device-dependent
+same value on any machine). Metrics 8-12 and 15-17 are device-dependent
 (measured wall clock / memory on whatever machine runs the script; always
 read them next to metric 13, the device_info block, which records what
 hardware produced them). Metric 14 is a derived heuristic estimate, not a
 direct measurement.
 
-Metrics 15-16 cover EWC (Elastic Weight Consolidation), mirroring 11-12's
+Metrics 15-17 cover EWC (Elastic Weight Consolidation), mirroring 11-12's
 coverage of replay: 15 times the one-time Fisher-information computation at
 a task boundary (hgrn/training.py's compute_fisher, called for real, not
 reimplemented), 16 times the added cost of the EWC quadratic penalty term on
-a normal training step. Both are absent from the model/replay comparison
-above because EWC never appears in that part of the pipeline.
+a normal training step, using the real vectorized implementation
+(hgrn.training.flatten_ewc_penalty_inputs/ewc_penalty -- every parameter
+flattened into one tensor once, so the penalty is a handful of large ops
+instead of one small op sequence per parameter tensor). 17 re-measures the
+same thing with the original, now-unused, per-parameter Python-loop penalty,
+so 16 vs 17 directly quantifies how much of the earlier ~2x GPU overhead
+finding was implementation choice (many small kernel launches) rather than
+something inherent to EWC as an algorithm.
 
 Usage:
     python analysis/profile_compute.py --arch both --device auto
@@ -49,7 +55,7 @@ if _PROJECT_ROOT not in sys.path:
 from hgrn.model import HGRNModel, _HAS_FLA
 from models.lstm import LSTMModel
 from hgrn.buffers import HerdingBuffer
-from hgrn.training import compute_fisher
+from hgrn.training import compute_fisher, flatten_ewc_penalty_inputs, ewc_penalty
 
 _ARCH_REGISTRY = {
     'hgrn': HGRNModel,
@@ -145,15 +151,28 @@ METRIC_CATALOG = [
      "training step."),
     (16, "ewc_step_overhead_ms", "device_dependent", "milliseconds",
      "Extra wall-clock time one training step costs when the EWC quadratic "
-     "penalty term (lambda_ewc * sum_i F_i * (theta_i - theta_i*)^2, evaluated "
-     "over every named parameter) is added to the loss before backward, vs a "
-     "penalty-free baseline step -- both include the same gradient-norm "
-     "clipping (max_norm=1.0) used in every real training function in "
-     "hgrn/training.py. This is the EWC analog of metric 12 (replay-step "
-     "overhead). Fisher/anchor-weight values used here are synthetic "
-     "(random, matching real tensor shapes), since the penalty's compute cost "
-     "does not depend on the specific Fisher values, only on doing the "
-     "per-parameter elementwise op over every parameter tensor."),
+     "penalty term (lambda_ewc * sum_i F_i * (theta_i - theta_i*)^2) is added "
+     "to the loss before backward, vs a penalty-free baseline step -- both "
+     "include the same gradient-norm clipping (max_norm=1.0) used in every "
+     "real training function in hgrn/training.py. Uses the real vectorized "
+     "penalty (hgrn.training.flatten_ewc_penalty_inputs/ewc_penalty: every "
+     "parameter flattened into one tensor once, penalty computed as a "
+     "handful of large ops instead of ~4 small ops per parameter tensor) -- "
+     "this is what real training actually runs as of the vectorization fix. "
+     "This is the EWC analog of metric 12 (replay-step overhead). "
+     "Fisher/anchor-weight values used here are synthetic (random, matching "
+     "real tensor shapes), since the penalty's compute cost does not depend "
+     "on the specific Fisher values, only on the shapes involved."),
+    (17, "ewc_step_overhead_naive_ms", "device_dependent", "milliseconds",
+     "Same measurement as metric 16, but using the ORIGINAL per-parameter "
+     "Python-loop penalty this codebase used before the vectorization fix "
+     "(one small op sequence per named parameter tensor, ~4 tiny GPU launches "
+     "each). Not used anywhere in real training as of this fix -- kept only "
+     "so 16 vs 17 directly quantifies how much of the original overhead was "
+     "implementation choice (many small kernel launches) rather than "
+     "something inherent to the EWC algorithm. On GPU this gap is expected "
+     "to be large; on CPU (no per-launch dispatch overhead) it should be "
+     "small."),
 ]
 METRIC_BY_KEY = {m[1]: m for m in METRIC_CATALOG}
 
@@ -477,7 +496,14 @@ def measure_ewc_fisher_computation(model, args, device):
 # Metric 16: EWC-step training overhead
 # ---------------------------------------------------------------------------
 
-def measure_ewc_step_overhead(model, args, device):
+def measure_ewc_step_overhead(model, args, device, vectorized=True):
+    """vectorized=True (default) uses the real training code's current
+    implementation (hgrn.training.flatten_ewc_penalty_inputs/ewc_penalty).
+    vectorized=False reproduces the original per-parameter Python-loop
+    penalty this codebase used before that fix, kept only so metric 17 can
+    quantify how much of the measured overhead was implementation choice
+    vs. something inherent to EWC -- it is not used anywhere in real
+    training and should not be read as describing current behavior."""
     model.train()
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=1e-4)
@@ -487,6 +513,8 @@ def measure_ewc_step_overhead(model, args, device):
     # specific values, so real (trained) Fisher weights aren't needed here.
     optpar_dict = {name: param.data.clone() for name, param in model.named_parameters()}
     fisher_dict = {name: torch.rand_like(param.data) for name, param in model.named_parameters()}
+    if vectorized:
+        fisher_flat, optpar_flat, ewc_params = flatten_ewc_penalty_inputs(model, fisher_dict, optpar_dict)
 
     def make_batch():
         x = torch.randn(args.batch_size, args.seq_len, args.in_channels, device=device)
@@ -501,7 +529,17 @@ def measure_ewc_step_overhead(model, args, device):
         nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
-    def ewc_step():
+    def ewc_step_vectorized():
+        x, y = make_batch()
+        optimizer.zero_grad()
+        logits, _ = model(x)
+        loss = criterion(logits, y)
+        loss = loss + args.ewc_lambda * ewc_penalty(fisher_flat, optpar_flat, ewc_params)
+        loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+
+    def ewc_step_naive():
         x, y = make_batch()
         optimizer.zero_grad()
         logits, _ = model(x)
@@ -515,6 +553,7 @@ def measure_ewc_step_overhead(model, args, device):
         nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
+    ewc_step = ewc_step_vectorized if vectorized else ewc_step_naive
     base = measure_latency_ms(base_step, args.n_warmup, args.n_repeats, device)
     ewc = measure_latency_ms(ewc_step, args.n_warmup, args.n_repeats, device)
     return {
@@ -582,7 +621,9 @@ def profile_one_arch(arch, args, device):
     result["replay_step_overhead_ms"] = _tag(
         "replay_step_overhead_ms", measure_replay_step_overhead(model, args, device))
     result["ewc_step_overhead_ms"] = _tag(
-        "ewc_step_overhead_ms", measure_ewc_step_overhead(model, args, device))
+        "ewc_step_overhead_ms", measure_ewc_step_overhead(model, args, device, vectorized=True))
+    result["ewc_step_overhead_naive_ms"] = _tag(
+        "ewc_step_overhead_naive_ms", measure_ewc_step_overhead(model, args, device, vectorized=False))
     return result
 
 
@@ -664,8 +705,11 @@ def print_summary(report):
         print(f"[15] EWC Fisher computation: "
               f"{m['ewc_fisher_computation_wall_time_s']['value']['wall_time_s']:.3f} s")
         es = m['ewc_step_overhead_ms']['value']
-        print(f"[16] EWC step overhead: +{es['overhead_ms_median']:.3f} ms "
+        print(f"[16] EWC step overhead (vectorized): +{es['overhead_ms_median']:.3f} ms "
               f"(x{es['overhead_ratio_median']:.2f})")
+        esn = m['ewc_step_overhead_naive_ms']['value']
+        print(f"[17] EWC step overhead (naive, pre-fix): +{esn['overhead_ms_median']:.3f} ms "
+              f"(x{esn['overhead_ratio_median']:.2f})")
     print("=" * 78 + "\n")
 
 

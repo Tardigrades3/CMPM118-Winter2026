@@ -1,5 +1,33 @@
 import torch
 
+
+def flatten_ewc_penalty_inputs(model, fisher_dict, optpar_dict):
+    """Flatten Fisher/anchor weights and the matching live parameters into
+    single vectors, in one consistent parameter order.
+
+    Computed once per training call (not once per step, and not once per
+    parameter tensor), so the per-step penalty below is a handful of large
+    vectorized ops instead of ~4 small ops per parameter tensor -- the
+    per-tensor Python loop was the dominant cost on GPU (many small kernel
+    launches, each paying a fixed dispatch overhead regardless of how tiny
+    the op is), not the arithmetic itself.
+    """
+    names, params = zip(*[(name, p) for name, p in model.named_parameters() if name in fisher_dict])
+    fisher_flat = torch.cat([fisher_dict[name].flatten() for name in names])
+    optpar_flat = torch.cat([optpar_dict[name].flatten() for name in names])
+    return fisher_flat, optpar_flat, list(params)
+
+
+def ewc_penalty(fisher_flat, optpar_flat, params):
+    """sum_i F_i * (theta_i - theta_i*)^2 over every flattened parameter, as
+    one vectorized op. Mathematically identical to summing the penalty
+    tensor-by-tensor (sum of sums = sum of the concatenated whole), so this
+    is a performance change only -- it does not alter the loss, the
+    gradients, or downstream accuracy/forgetting."""
+    params_flat = torch.cat([p.flatten() for p in params])
+    return (fisher_flat * (params_flat - optpar_flat).pow(2)).sum()
+
+
 def train_naive_stateless(model, task_loader, optimizer, criterion, device):
     """
     Standard training loop. 
@@ -234,9 +262,13 @@ def train_ewc_stateful(model, task_loader, optimizer, criterion, device, fisher_
     total_loss = 0.0
     correct_predictions = 0
     total_samples = 0
-    
-    h_states = None 
-    
+
+    use_ewc = fisher_dict is not None and optpar_dict is not None
+    if use_ewc:
+        fisher_flat, optpar_flat, ewc_params = flatten_ewc_penalty_inputs(model, fisher_dict, optpar_dict)
+
+    h_states = None
+
     for batch_idx, (sequences, labels, attention_mask) in enumerate(task_loader):
         sequences = sequences.to(device)
         labels = labels.to(device)
@@ -265,13 +297,9 @@ def train_ewc_stateful(model, task_loader, optimizer, criterion, device, fisher_
         # 3. Standard Classification Loss
         loss = criterion(logits, labels)
         
-        # --- EWC PENALTY ---
-        ewc_loss = 0.0
-        if fisher_dict is not None and optpar_dict is not None:
-            for name, param in model.named_parameters():
-                if name in fisher_dict:
-                    ewc_loss += (fisher_dict[name] * (param - optpar_dict[name]).pow(2)).sum()
-            loss = loss + (ewc_lambda * ewc_loss)
+        # --- EWC PENALTY (vectorized, see flatten_ewc_penalty_inputs/ewc_penalty) ---
+        if use_ewc:
+            loss = loss + (ewc_lambda * ewc_penalty(fisher_flat, optpar_flat, ewc_params))
         # -------------------
 
         # 5. Backpropagate the combined loss
@@ -334,6 +362,10 @@ def train_ewc_stateless(model, task_loader, optimizer, criterion, device,
     correct_predictions = 0
     total_samples = 0
 
+    use_ewc = fisher_dict is not None and optpar_dict is not None
+    if use_ewc:
+        fisher_flat, optpar_flat, ewc_params = flatten_ewc_penalty_inputs(model, fisher_dict, optpar_dict)
+
     for sequences, labels, attention_mask in task_loader:
         sequences = sequences.to(device)
         labels = labels.to(device)
@@ -343,12 +375,8 @@ def train_ewc_stateless(model, task_loader, optimizer, criterion, device,
         logits, _ = model(x=sequences, states=None, attention_mask=attention_mask)
         loss = criterion(logits, labels)
 
-        if fisher_dict is not None and optpar_dict is not None:
-            ewc_loss = 0.0
-            for name, param in model.named_parameters():
-                if name in fisher_dict:
-                    ewc_loss += (fisher_dict[name] * (param - optpar_dict[name]).pow(2)).sum()
-            loss = loss + ewc_lambda * ewc_loss
+        if use_ewc:
+            loss = loss + ewc_lambda * ewc_penalty(fisher_flat, optpar_flat, ewc_params)
 
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
