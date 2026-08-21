@@ -91,7 +91,10 @@ METRIC_CATALOG = [
     (8, "inference_latency_stateless_window_ms", "device_dependent", "milliseconds",
      "Wall-clock latency of one full-window forward pass (batch=1, eval mode, "
      "no_grad), mean/median/p95/p99/std over --n_repeats after --n_warmup warmup "
-     "calls. torch.cuda.synchronize() brackets each call when on GPU."),
+     "calls. torch.cuda.synchronize() brackets each call when on GPU. Each call "
+     "uses a distinct, independently-sampled random window, pre-allocated before "
+     "timing starts so RNG/allocation cost never leaks into the measured time -- "
+     "avoids any artifact from repeatedly reading one cached input tensor."),
     (9, "inference_latency_streaming_single_timestep_ms", "device_dependent", "milliseconds",
      "Wall-clock latency of one incremental single-EMG-sample forward pass (T=1), "
      "with recurrent state carried from the previous call. This is a real-time "
@@ -99,7 +102,9 @@ METRIC_CATALOG = [
      "arrives) and is DISTINCT from this repo's 'stateful' training/eval mode, "
      "which carries state window-to-window (T=seq_len per call), never "
      "timestep-to-timestep -- see AGENT_HANDOFF.md section 3 on not conflating "
-     "state-handling axes. Same statistics as metric 8."),
+     "state-handling axes. Same statistics as metric 8, and the same "
+     "distinct-pre-allocated-input-per-call approach (recurrent state is still "
+     "carried across calls as normal; only the new-sample input changes)."),
     (10, "peak_activation_memory_bytes", "device_dependent", "bytes",
      "Peak memory during one stateless-window forward pass. On CUDA this is exact "
      "and isolated to the call (torch.cuda.max_memory_allocated after "
@@ -304,11 +309,21 @@ def measure_latency_ms(fn, n_warmup, n_repeats, device):
     }
 
 
+def _make_input_pool(shape, n, device):
+    """Pre-allocate n distinct random tensors of `shape`, built before timing
+    starts so RNG/allocation cost never leaks into a measured call."""
+    return [torch.randn(*shape, device=device) for _ in range(n)]
+
+
 def measure_window_latency(model, args, device):
     model.eval()
-    x = torch.randn(1, args.seq_len, args.in_channels, device=device)
+    n_calls = args.n_warmup + args.n_repeats
+    pool = _make_input_pool((1, args.seq_len, args.in_channels), n_calls, device)
+    call_idx = [0]
 
     def step():
+        x = pool[call_idx[0]]
+        call_idx[0] += 1
         with torch.no_grad():
             model(x)
 
@@ -322,10 +337,14 @@ def measure_streaming_single_timestep_latency(model, args, device):
     window-to-window (T=seq_len), not timestep-to-timestep. See metric 9.
     """
     model.eval()
-    x = torch.randn(1, 1, args.in_channels, device=device)
+    n_calls = args.n_warmup + args.n_repeats
+    pool = _make_input_pool((1, 1, args.in_channels), n_calls, device)
+    call_idx = [0]
     state_holder = [None]
 
     def step():
+        x = pool[call_idx[0]]
+        call_idx[0] += 1
         with torch.no_grad():
             _, next_states = model(x, states=state_holder[0])
         state_holder[0] = next_states
