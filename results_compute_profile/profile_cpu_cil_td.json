@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-21T00:20:30.070049",
+  "generated_at": "2026-08-21T00:29:00.284473",
   "config": {
     "arch": "both",
     "device": "cpu",
@@ -286,11 +286,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 1.4138764733449232,
-          "median_ms": 1.4113879997239565,
-          "p95_ms": 1.4590464498269284,
-          "p99_ms": 1.4743032101659992,
-          "std_ms": 0.029619337208482806,
+          "mean_ms": 1.4688892066790988,
+          "median_ms": 1.4683245001378964,
+          "p95_ms": 1.5076650501669064,
+          "p99_ms": 1.5273139001283198,
+          "std_ms": 0.0236917392423912,
           "n_repeats": 300
         }
       },
@@ -299,11 +299,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 0.6753126533218771,
-          "median_ms": 0.6773954999061971,
-          "p95_ms": 0.6956694999644242,
-          "p99_ms": 0.7131853099690488,
-          "std_ms": 0.01805690632274955,
+          "mean_ms": 0.6714023200098987,
+          "median_ms": 0.6738060001225676,
+          "p95_ms": 0.6898569997701998,
+          "p99_ms": 0.7037500098658711,
+          "std_ms": 0.013277035919957133,
           "n_repeats": 300
         }
       },
@@ -312,7 +312,7 @@
         "category": "device_dependent",
         "unit": "bytes",
         "value": {
-          "bytes": 906792960,
+          "bytes": 907100160,
           "measurement": "whole-process peak RSS high-water mark after this call, NOT isolated to this call (cpu)"
         }
       },
@@ -321,7 +321,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.2603882080002222,
+          "wall_time_s": 0.26376207099974636,
           "num_classes": 53,
           "samples_per_class": 30,
           "resulting_buffer_size": 1060
@@ -332,7 +332,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.22611857299989424,
+          "wall_time_s": 0.22824890199990477,
           "n_batches": 15,
           "batch_size": 32,
           "total_samples": 480
@@ -350,23 +350,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 14.640295053335043,
-            "median_ms": 14.584749500045291,
-            "p95_ms": 15.188324149676193,
-            "p99_ms": 15.555803699617172,
-            "std_ms": 0.2751687839497074,
+            "mean_ms": 14.569900340002278,
+            "median_ms": 14.543279499775963,
+            "p95_ms": 14.986416499618826,
+            "p99_ms": 15.207322020110041,
+            "std_ms": 0.2060052677868484,
             "n_repeats": 300
           },
           "replay_augmented_step_ms": {
-            "mean_ms": 17.972459043333703,
-            "median_ms": 17.948437000086415,
-            "p95_ms": 18.367888950183442,
-            "p99_ms": 18.554153210134245,
-            "std_ms": 0.1977765927417092,
+            "mean_ms": 18.023835216669493,
+            "median_ms": 17.9713449999781,
+            "p95_ms": 18.531469499703235,
+            "p99_ms": 18.917134300304497,
+            "std_ms": 0.2665199723868168,
             "n_repeats": 300
           },
-          "overhead_ms_median": 3.3636875000411237,
-          "overhead_ratio_median": 1.23063046095037
+          "overhead_ms_median": 3.4280655002021376,
+          "overhead_ratio_median": 1.235714750600437
         }
       },
       "ewc_step_overhead_ms": {
@@ -375,23 +375,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 14.372886069994214,
-            "median_ms": 14.33942899984686,
-            "p95_ms": 14.72638549983003,
-            "p99_ms": 14.920900119977887,
-            "std_ms": 0.18542784457065845,
+            "mean_ms": 14.509178230011154,
+            "median_ms": 14.470618000132163,
+            "p95_ms": 14.928596999970978,
+            "p99_ms": 15.055157010024232,
+            "std_ms": 0.195026995438946,
             "n_repeats": 300
           },
           "ewc_augmented_step_ms": {
-            "mean_ms": 18.744164610005402,
-            "median_ms": 18.713424999987183,
-            "p95_ms": 19.167153099647294,
-            "p99_ms": 19.390456810069736,
-            "std_ms": 0.21703959903483452,
+            "mean_ms": 18.78600546334231,
+            "median_ms": 18.773271999862118,
+            "p95_ms": 19.12243490023684,
+            "p99_ms": 19.3422019999889,
+            "std_ms": 0.1870791092111794,
             "n_repeats": 300
           },
-          "overhead_ms_median": 4.373996000140323,
-          "overhead_ratio_median": 1.305032787580805
+          "overhead_ms_median": 4.302653999729955,
+          "overhead_ratio_median": 1.2973372664312373
         }
       }
     },
@@ -439,11 +439,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 1.0552812866520374,
-          "median_ms": 1.0511589998714044,
-          "p95_ms": 1.082894999990458,
-          "p99_ms": 1.1257938901053421,
-          "std_ms": 0.015136729642571433,
+          "mean_ms": 1.0545832666684873,
+          "median_ms": 1.0505739999189245,
+          "p95_ms": 1.0808580002276358,
+          "p99_ms": 1.1365572999056892,
+          "std_ms": 0.019593970469544173,
           "n_repeats": 300
         }
       },
@@ -452,11 +452,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 0.8113051466731728,
-          "median_ms": 0.8119235001231573,
-          "p95_ms": 0.8359470003370006,
-          "p99_ms": 0.8591193899337668,
-          "std_ms": 0.017474317044159745,
+          "mean_ms": 0.7945946666632153,
+          "median_ms": 0.7952835001105996,
+          "p95_ms": 0.8117314999253722,
+          "p99_ms": 0.8386274098984358,
+          "std_ms": 0.013087214579512311,
           "n_repeats": 300
         }
       },
@@ -465,7 +465,7 @@
         "category": "device_dependent",
         "unit": "bytes",
         "value": {
-          "bytes": 940625920,
+          "bytes": 937545728,
           "measurement": "whole-process peak RSS high-water mark after this call, NOT isolated to this call (cpu)"
         }
       },
@@ -474,7 +474,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.27333683100005146,
+          "wall_time_s": 0.27661798799999815,
           "num_classes": 53,
           "samples_per_class": 30,
           "resulting_buffer_size": 1060
@@ -485,7 +485,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.24353453700041428,
+          "wall_time_s": 0.23679245399989668,
           "n_batches": 15,
           "batch_size": 32,
           "total_samples": 480
@@ -503,23 +503,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 16.158753650011022,
-            "median_ms": 16.190531999882296,
-            "p95_ms": 16.822775550167535,
-            "p99_ms": 17.24140871004238,
-            "std_ms": 0.40927679408607326,
+            "mean_ms": 16.1876135233418,
+            "median_ms": 16.251422000323146,
+            "p95_ms": 17.15760499996577,
+            "p99_ms": 17.36467894002999,
+            "std_ms": 0.6367518931273687,
             "n_repeats": 300
           },
           "replay_augmented_step_ms": {
-            "mean_ms": 22.266910790011327,
-            "median_ms": 22.261861500055602,
-            "p95_ms": 23.100198050155996,
-            "p99_ms": 23.478294559940874,
-            "std_ms": 0.5522904237245613,
+            "mean_ms": 22.22886205666479,
+            "median_ms": 22.244180499910726,
+            "p95_ms": 23.224690499773715,
+            "p99_ms": 23.506031729903043,
+            "std_ms": 0.6221564193899296,
             "n_repeats": 300
           },
-          "overhead_ms_median": 6.071329500173306,
-          "overhead_ratio_median": 1.374992588274273
+          "overhead_ms_median": 5.9927584995875804,
+          "overhead_ratio_median": 1.368752869716165
         }
       },
       "ewc_step_overhead_ms": {
@@ -528,23 +528,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 16.569562333334034,
-            "median_ms": 16.505233999851043,
-            "p95_ms": 17.94263405001857,
-            "p99_ms": 18.443632189705568,
-            "std_ms": 0.597384231410429,
+            "mean_ms": 16.46762481334008,
+            "median_ms": 16.44294099992294,
+            "p95_ms": 17.312840000090546,
+            "p99_ms": 18.456496210324076,
+            "std_ms": 0.5728051859664078,
             "n_repeats": 300
           },
           "ewc_augmented_step_ms": {
-            "mean_ms": 20.753017880004638,
-            "median_ms": 21.262420000084603,
-            "p95_ms": 21.715399499908017,
-            "p99_ms": 21.967288609889692,
-            "std_ms": 1.4757818393076358,
+            "mean_ms": 20.197237486669717,
+            "median_ms": 20.329190499978722,
+            "p95_ms": 21.718774050009415,
+            "p99_ms": 22.04809049981577,
+            "std_ms": 1.4299182294483548,
             "n_repeats": 300
           },
-          "overhead_ms_median": 4.75718600023356,
-          "overhead_ratio_median": 1.2882228752574179
+          "overhead_ms_median": 3.886249500055783,
+          "overhead_ratio_median": 1.2363475913508415
         }
       }
     }

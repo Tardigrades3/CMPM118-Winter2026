@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T23:44:21.446428",
+  "generated_at": "2026-08-21T00:27:09.057195",
   "config": {
     "arch": "both",
     "device": "cuda",
@@ -69,13 +69,13 @@
       "key": "inference_latency_stateless_window_ms",
       "category": "device_dependent",
       "unit": "milliseconds",
-      "description": "Wall-clock latency of one full-window forward pass (batch=1, eval mode, no_grad), mean/median/p95/p99/std over --n_repeats after --n_warmup warmup calls. torch.cuda.synchronize() brackets each call when on GPU."
+      "description": "Wall-clock latency of one full-window forward pass (batch=1, eval mode, no_grad), mean/median/p95/p99/std over --n_repeats after --n_warmup warmup calls. torch.cuda.synchronize() brackets each call when on GPU. Each call uses a distinct, independently-sampled random window, pre-allocated before timing starts so RNG/allocation cost never leaks into the measured time -- avoids any artifact from repeatedly reading one cached input tensor."
     },
     "9": {
       "key": "inference_latency_streaming_single_timestep_ms",
       "category": "device_dependent",
       "unit": "milliseconds",
-      "description": "Wall-clock latency of one incremental single-EMG-sample forward pass (T=1), with recurrent state carried from the previous call. This is a real-time streaming/on-device deployment pattern (classify as each new sample arrives) and is DISTINCT from this repo's 'stateful' training/eval mode, which carries state window-to-window (T=seq_len per call), never timestep-to-timestep -- see AGENT_HANDOFF.md section 3 on not conflating state-handling axes. Same statistics as metric 8."
+      "description": "Wall-clock latency of one incremental single-EMG-sample forward pass (T=1), with recurrent state carried from the previous call. This is a real-time streaming/on-device deployment pattern (classify as each new sample arrives) and is DISTINCT from this repo's 'stateful' training/eval mode, which carries state window-to-window (T=seq_len per call), never timestep-to-timestep -- see AGENT_HANDOFF.md section 3 on not conflating state-handling axes. Same statistics as metric 8, and the same distinct-pre-allocated-input-per-call approach (recurrent state is still carried across calls as normal; only the new-sample input changes)."
     },
     "10": {
       "key": "peak_activation_memory_bytes",
@@ -287,11 +287,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 1.9992457500004928,
-          "median_ms": 2.001215999996475,
-          "p95_ms": 2.030968950035117,
-          "p99_ms": 2.0479605000019774,
-          "std_ms": 0.024786645639366132,
+          "mean_ms": 2.0396760433413874,
+          "median_ms": 2.036186999930578,
+          "p95_ms": 2.0705979997501345,
+          "p99_ms": 2.0894796002994553,
+          "std_ms": 0.022719231716846817,
           "n_repeats": 300
         }
       },
@@ -300,11 +300,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 1.988459953331206,
-          "median_ms": 2.0009360000017296,
-          "p95_ms": 2.026921499970058,
-          "p99_ms": 2.0708086100285072,
-          "std_ms": 0.03775407982028798,
+          "mean_ms": 2.030338413323989,
+          "median_ms": 2.0285420000618615,
+          "p95_ms": 2.055978450243856,
+          "p99_ms": 2.069430800393093,
+          "std_ms": 0.015378609383412335,
           "n_repeats": 300
         }
       },
@@ -322,7 +322,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.06115600399999721,
+          "wall_time_s": 0.06027410000024247,
           "num_classes": 13,
           "samples_per_class": 30,
           "resulting_buffer_size": 260
@@ -333,7 +333,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.39354162899996936,
+          "wall_time_s": 0.39498622200017053,
           "n_batches": 15,
           "batch_size": 32,
           "total_samples": 480
@@ -351,23 +351,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 7.363563119999412,
-            "median_ms": 7.334633499965548,
-            "p95_ms": 7.558128549968046,
-            "p99_ms": 7.8409854099658105,
-            "std_ms": 0.11413102548212942,
+            "mean_ms": 7.482408936669647,
+            "median_ms": 7.440436499791758,
+            "p95_ms": 7.814189550072115,
+            "p99_ms": 8.015814229961506,
+            "std_ms": 0.1605407394045565,
             "n_repeats": 300
           },
           "replay_augmented_step_ms": {
-            "mean_ms": 7.416064663333373,
-            "median_ms": 7.380369499998096,
-            "p95_ms": 7.610072999963791,
-            "p99_ms": 7.833609109998179,
-            "std_ms": 0.10650782195266266,
+            "mean_ms": 7.49736102667157,
+            "median_ms": 7.46164699990004,
+            "p95_ms": 7.723213050076083,
+            "p99_ms": 8.086918809990493,
+            "std_ms": 0.13493567138489387,
             "n_repeats": 300
           },
-          "overhead_ms_median": 0.04573600003254796,
-          "overhead_ratio_median": 1.006235621729806
+          "overhead_ms_median": 0.02121050010828185,
+          "overhead_ratio_median": 1.0028507064214411
         }
       },
       "ewc_step_overhead_ms": {
@@ -376,23 +376,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 7.3424446799994785,
-            "median_ms": 7.318093000009185,
-            "p95_ms": 7.546767500031137,
-            "p99_ms": 7.760328999992225,
-            "std_ms": 0.10582597497360922,
+            "mean_ms": 7.398690153328668,
+            "median_ms": 7.376605499985089,
+            "p95_ms": 7.554888000117899,
+            "p99_ms": 7.910719210167372,
+            "std_ms": 0.10420413047771675,
             "n_repeats": 300
           },
           "ewc_augmented_step_ms": {
-            "mean_ms": 15.626350356666116,
-            "median_ms": 15.575803000018595,
-            "p95_ms": 16.070655999996575,
-            "p99_ms": 16.467580600004794,
-            "std_ms": 0.21232913526833636,
+            "mean_ms": 15.715414873334339,
+            "median_ms": 15.635315499821445,
+            "p95_ms": 16.195742249874456,
+            "p99_ms": 16.45008622012938,
+            "std_ms": 0.23215549840187735,
             "n_repeats": 300
           },
-          "overhead_ms_median": 8.25771000000941,
-          "overhead_ratio_median": 2.128396427867075
+          "overhead_ms_median": 8.258709999836356,
+          "overhead_ratio_median": 2.1195813575570837
         }
       }
     },
@@ -440,11 +440,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 0.8469865600018996,
-          "median_ms": 0.8491340000205128,
-          "p95_ms": 0.8682869999574905,
-          "p99_ms": 0.8789185000398447,
-          "std_ms": 0.017607656465045952,
+          "mean_ms": 0.8179934033584383,
+          "median_ms": 0.8191285000975768,
+          "p95_ms": 0.8329115001060927,
+          "p99_ms": 0.8452233000889464,
+          "std_ms": 0.01213259769129087,
           "n_repeats": 300
         }
       },
@@ -453,11 +453,11 @@
         "category": "device_dependent",
         "unit": "milliseconds",
         "value": {
-          "mean_ms": 0.7429092633329523,
-          "median_ms": 0.7438270000079683,
-          "p95_ms": 0.7642749500035961,
-          "p99_ms": 0.7777545000271856,
-          "std_ms": 0.01433429966272249,
+          "mean_ms": 0.7145486700043572,
+          "median_ms": 0.7172059997628821,
+          "p95_ms": 0.7324354996399052,
+          "p99_ms": 0.7421021000573091,
+          "std_ms": 0.014509252122818912,
           "n_repeats": 300
         }
       },
@@ -475,7 +475,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.03310350100002779,
+          "wall_time_s": 0.032533683000110614,
           "num_classes": 13,
           "samples_per_class": 30,
           "resulting_buffer_size": 260
@@ -486,7 +486,7 @@
         "category": "device_dependent",
         "unit": "seconds",
         "value": {
-          "wall_time_s": 0.1015133730000457,
+          "wall_time_s": 0.10451978799983408,
           "n_batches": 15,
           "batch_size": 32,
           "total_samples": 480
@@ -504,23 +504,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 4.495123023332137,
-            "median_ms": 4.484668000003467,
-            "p95_ms": 4.622101449953675,
-            "p99_ms": 4.712742000000958,
-            "std_ms": 0.0705125284561136,
+            "mean_ms": 4.626761003307062,
+            "median_ms": 4.61562050008979,
+            "p95_ms": 4.703858500124625,
+            "p99_ms": 4.848279319689936,
+            "std_ms": 0.06193862704204327,
             "n_repeats": 300
           },
           "replay_augmented_step_ms": {
-            "mean_ms": 4.55562066000103,
-            "median_ms": 4.542119500001718,
-            "p95_ms": 4.678491000021268,
-            "p99_ms": 4.888650500002996,
-            "std_ms": 0.08563102875215493,
+            "mean_ms": 4.6967649333237205,
+            "median_ms": 4.683726999928695,
+            "p95_ms": 4.798208550073468,
+            "p99_ms": 4.978105019768008,
+            "std_ms": 0.0681282032380193,
             "n_repeats": 300
           },
-          "overhead_ms_median": 0.057451499998251165,
-          "overhead_ratio_median": 1.0128106472983522
+          "overhead_ms_median": 0.06810649983890471,
+          "overhead_ratio_median": 1.0147556541612508
         }
       },
       "ewc_step_overhead_ms": {
@@ -529,23 +529,23 @@
         "unit": "milliseconds",
         "value": {
           "baseline_step_ms": {
-            "mean_ms": 4.474384970000074,
-            "median_ms": 4.469127999954026,
-            "p95_ms": 4.549068050002347,
-            "p99_ms": 4.6774735000002465,
-            "std_ms": 0.060455802804257434,
+            "mean_ms": 4.63575462000487,
+            "median_ms": 4.6246359997894615,
+            "p95_ms": 4.7400520000337565,
+            "p99_ms": 4.9781852198975685,
+            "std_ms": 0.07113240966475244,
             "n_repeats": 300
           },
           "ewc_augmented_step_ms": {
-            "mean_ms": 8.689737519998554,
-            "median_ms": 8.651899000000185,
-            "p95_ms": 8.911561550004876,
-            "p99_ms": 9.134318219951751,
-            "std_ms": 0.12574388262498395,
+            "mean_ms": 8.865664139998444,
+            "median_ms": 8.86157700028889,
+            "p95_ms": 9.071722499743373,
+            "p99_ms": 9.387158109984739,
+            "std_ms": 0.13676905537883582,
             "n_repeats": 300
           },
-          "overhead_ms_median": 4.182771000046159,
-          "overhead_ratio_median": 1.9359255318015478
+          "overhead_ms_median": 4.236941000499428,
+          "overhead_ratio_median": 1.916167456355985
         }
       }
     }
