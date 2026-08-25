@@ -48,6 +48,9 @@ def main():
                         help="Exercise number (only used if scenario='dil').")
     parser.add_argument('--arch', type=str, default='hgrn', choices=list(_ARCH_REGISTRY),
                         help="Model architecture (default: hgrn).")
+    parser.add_argument('--num_base_subjects', type=int, default=0,
+                     help='Number of subjects to jointly pretrain on before switching to '
+                          'sequential DIL continual learning. 0 disables this (default DIL behavior).')
     # Training
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--epochs_per_task', type=int, default=5)
@@ -117,6 +120,8 @@ def main():
             n_subwindows=args.n_subwindows
         )
         print(f"Detected {total_classes} total classes for Exercise {args.exercise}.")
+        base_tasks = task_streams[:args.num_base_subjects]
+        task_streams = task_streams[args.num_base_subjects:]
 
     elif args.scenario == 'cil':
         print(f"Building Class-Incremental stream for Subject {args.subject} (exercise-to-exercise)...")
@@ -129,6 +134,7 @@ def main():
             n_subwindows=args.n_subwindows
         )
         print(f"Detected {total_classes} total classes across exercises.")
+        base_tasks = []
 
     # Input feature dimension is derived from the data (10 for raw EMG, C*5 for TD)
     in_channels = task_streams[0]['train'].dataset.X.shape[-1]
@@ -158,6 +164,7 @@ def main():
             "scenario": args.scenario,
             "exercise": args.exercise,
             "subject": args.subject,
+            "num_base_subjects": args.num_base_subjects,
             "features": args.features,
             "in_channels": in_channels,
             "d_model": args.d_model,
@@ -181,6 +188,38 @@ def main():
         "forward_performance": {},
         "final_performance": {}
     }
+    if base_tasks:
+      num=[i['task_id'] for i in base_tasks]
+      load_population= torch.utils.data.DataLoader(torch.utils.data.ConcatDataset([i['train'].dataset for i in base_tasks]), batch_size=args.batch_size, shuffle=True,collate_fn=base_tasks[0]['train'].collate_fn)
+      population_loss=[]
+      population_acc=[]
+      print(f"\n--- Debugging load_population data structure ---")
+      for batch_data in load_population:
+          print(f"  Batch data type: {type(batch_data)}, length: {len(batch_data)}")
+          for i, item in enumerate(batch_data):
+              if isinstance(item, torch.Tensor):
+                  print(f"    Item {i} shape: {item.shape}")
+              else:
+                  print(f"    Item {i} type: {type(item)}")
+          break # Only check the first batch
+      for epoch in range(args.epochs_per_task):
+        l, a = training_functions.train_naive_stateless(model, load_population, optimizer, criterion, device)
+        population_loss.append(l)
+        population_acc.append(a)
+        print(f"[Base] Final epoch | Loss: {population_loss[-1]:.4f} | Acc: {population_acc[-1]:.4f}")
+      eval_results["training_history"]["base_joint"] = {"subject_ids": num, "epoch_losses": population_loss, "epoch_accuracies": population_acc}
+      if args.mode in ('replay_stateless', 'replay_stateful'):
+            for seq, lab, mask in load_population:
+                memory_buffer.add_data(seq, lab, mask)
+      elif args.mode == 'herding_stateful':
+            herding_buffer.select_exemplars(model, load_population, device, num_classes=total_classes)
+      elif args.mode in ('ewc_stateless', 'ewc_stateful'):
+            fisher_dict, optpar_dict = training_functions.compute_fisher(model, load_population, device, stateless=(args.mode == 'ewc_stateless'))
+      for i in base_tasks:
+          _, acc, per_class = evaluation_functions.evaluate(model, i['test'], criterion, device)
+          eval_results["immediate_performance"][i['task_id']] = {"accuracy": acc, "per_class_accuracy": per_class}
+          print(f"[Base] Eval on {i['task_id']} -> Acc: {acc:.4f}")
+      torch.save({'task_id': 'base_joint', 'subject_ids': num,'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(save_dir, f"hgrn_{args.mode}_base_joint.pt"))
 
     for task_idx, task in enumerate(task_streams):
         task_id = task['task_id']
@@ -326,7 +365,7 @@ def main():
 
     print("\nTraining complete. Running final evaluation across all tasks...")
 
-    for task in task_streams:
+    for task in base_tasks+task_streams:
         task_id = task['task_id']
         fin_loss, fin_acc, fin_per_class = evaluation_functions.evaluate(
             model, task['test'], criterion, device)
