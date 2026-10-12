@@ -19,3 +19,4 @@ logs/
 results/plots/
 
 .claude
+__pycache__/
